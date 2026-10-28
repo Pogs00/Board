@@ -161,13 +161,13 @@ const ini=n=>n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(
 const day=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
 const now=()=>Date.now();
 const D={boards:{},groups:{},items:{},updates:{},settings:{}};
-let bulk=false,q='';
+let bulk=false,q='',setReady=false;
 let st={active:null,view:'table',dash:false,gz:30},db=null,fold={},pending=false;
 try{const p=JSON.parse(localStorage.getItem('boards-ui'));if(p){st.active=p.active;st.view=p.view||'table';st.dash=!!p.dash;st.gz=p.gz||30;fold=p.fold||{}}}catch(e){}
 const save=()=>{try{localStorage.setItem('boards-ui',JSON.stringify({active:st.active,view:st.view,dash:st.dash,gz:st.gz,fold}))}catch(e){}};
 const srt=a=>a.sort((x,y)=>(x.order||0)-(y.order||0));
 const boards=()=>srt(Object.values(D.boards)).map(b=>({...b,groups:srt(Object.values(D.groups).filter(g=>g.boardId===b.id)).map(g=>({...g,collapsed:!!fold[g.id],items:srt(Object.values(D.items).filter(i=>i.groupId===g.id))}))}));
-const live=()=>boards().filter(b=>!b.archived);
+const live=()=>(db&&!setReady)?[]:boards().filter(b=>!b.archived&&canSee(b));
 const B=()=>{const l=live();const b=l.find(x=>x.id===st.active)||l[0];if(b)st.active=b.id;return b};
 function ask(msg,input){return new Promise(res=>{const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px';
  o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(360px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font-weight:600;margin-bottom:12px">${esc(msg)}</div>${input?'<input id="mi" maxlength="80" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit">':''}<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" data-m="0">Cancel</button><button class="btn pri" data-m="1">OK</button></div></div>`;
@@ -271,7 +271,7 @@ const vtxt=(f,v)=>f==='status'?(S[v]!==undefined?S[v]:v):f==='priority'?P[v]:(v|
 const nv=v=>v===undefined||v===null?'':v;
 function trk(id,patch){const it=D.items[id];if(!it)return;Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch)}
 function delItemUndo(id){const it=D.items[id];if(!it)return;const ups=Object.values(D.updates).filter(u=>u.itemId===id);delItem(id);toast('Item deleted',()=>{bulk=true;put('items',id,it,true);ups.forEach(u=>put('updates',u.id,u,true));bulk=false;renderAll()})}
-const archHtml=()=>{const a=boards().filter(b=>b.archived);return a.length?'<div style="margin:16px 10px 4px;font-size:12px;opacity:.6">ARCHIVED</div>'+a.map(b=>`<div class="bd" style="cursor:default"><span style="overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><span><button class="x" style="color:inherit" data-a="unarch" data-id="${b.id}" title="Restore" aria-label="Restore board">↩</button><button class="x" style="color:inherit" data-a="purge" data-id="${b.id}" title="Delete forever" aria-label="Delete forever">×</button></span></div>`).join(''):''};
+const archHtml=()=>{const a=boards().filter(b=>b.archived&&canSee(b));return a.length?'<div style="margin:16px 10px 4px;font-size:12px;opacity:.6">ARCHIVED</div>'+a.map(b=>`<div class="bd" style="cursor:default"><span style="overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><span><button class="x" style="color:inherit" data-a="unarch" data-id="${b.id}" title="Restore" aria-label="Restore board">↩</button><button class="x" style="color:inherit" data-a="purge" data-id="${b.id}" title="Delete forever" aria-label="Delete forever">×</button></span></div>`).join(''):''};
 function ownerCell(it){const t=team();if(!t.length)return `<input data-f="owner" value="${esc(it.owner)}" placeholder="Assign" aria-label="Owner">`;
  const ex=it.owner&&!t.includes(it.owner)?[it.owner]:[];return `<select class="osel" data-f="owner" aria-label="Owner"><option value="">Unassigned</option>${[...t,...ex].map(n=>`<option value="${esc(n)}" ${n===it.owner?'selected':''}>${esc(n)}</option>`).join('')}</select>`}
 function fbar(){const its=B().groups.flatMap(g=>g.items),nm=me()!=='Someone'?me():'',own=[...new Set([...team(),...its.map(i=>i.owner).filter(Boolean)])];
@@ -361,7 +361,7 @@ function openReport(){if(!live().length){toast('Create a board first');return}
  const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px';
  const sel=(id,l,opts)=>`<label style="display:block;margin-bottom:12px"><div class="cnt" style="margin-bottom:4px">${l}</div><select id="${id}" class="dsel" style="width:100%">${opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`;
  o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(380px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font:700 18px 'Bricolage Grotesque',sans-serif;margin-bottom:14px">Create report</div>
- ${sel('rs','Boards',[['one','This board'+(B()?' ('+esc(B().name)+')':'')],['all','All boards (one sheet or section each)'],...teams().map(t=>[t.id,esc('All boards in '+t.name)])])}${sel('rl','Layout',[['table','Table'],['kanban','Kanban'],['gantt','Gantt']])}${sel('rf','Format',[['xlsx','Excel (.xlsx)'],['pdf','PDF']])}
+ ${sel('rs','Boards',[['one','This board'+(B()?' ('+esc(B().name)+')':'')],['all','All boards (one sheet or section each)'],...teams().filter(canSeeTeam).map(t=>[t.id,esc('All boards in '+t.name)])])}${sel('rl','Layout',[['table','Table'],['kanban','Kanban'],['gantt','Gantt']])}${sel('rf','Format',[['xlsx','Excel (.xlsx)'],['pdf','PDF']])}
  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="go">Generate</button></div></div>`;
  if(st.dash||!B())o.querySelector('#rs').value='all';
  o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='go'){const v=id=>o.querySelector('#'+id).value,opt={all:v('rs')==='all'?true:v('rs')==='one'?false:v('rs'),layout:v('rl'),fmt:v('rf')};o.remove();runReport(opt)}};
@@ -377,7 +377,7 @@ function deny(){const u=auth0&&auth0.currentUser;gate(`<p>Signed in as <b>${esc(
 const signoutHtml=()=>auth0&&auth0.currentUser?`<div style="font-size:11px;opacity:.6;margin:14px 10px 2px;overflow:hidden;text-overflow:ellipsis">${esc(auth0.currentUser.email||'')}</div><button class="bd ghost" data-a="signout" style="margin-top:2px">Sign out</button>`:'';
 function start(u){try{if(!localStorage.getItem('boards-name')&&u.displayName)localStorage.setItem('boards-name',u.displayName)}catch(e){}
  db=firebase.firestore();
- ['boards','groups','items','updates','settings'].forEach(col=>db.collection(col).onSnapshot(sn=>{D[col]={};sn.docs.forEach(d=>D[col][d.id]={...d.data(),id:d.id});later()},er=>er.code==='permission-denied'?deny():toast('Sync problem: '+(er.message||er.code))));
+ ['boards','groups','items','updates','settings'].forEach(col=>db.collection(col).onSnapshot(sn=>{D[col]={};sn.docs.forEach(d=>D[col][d.id]={...d.data(),id:d.id});if(col==='settings')setReady=true;later()},er=>er.code==='permission-denied'?deny():toast('Sync problem: '+(er.message||er.code))));
  renderAll();ensureName()}
 const hrs=id=>Object.values(D.updates).filter(u=>u.itemId===id&&u.kind==='time').reduce((a,u)=>a+(+u.hours||0),0);
 const fh=n=>(Math.round((+n||0)*100)/100)+'h';
@@ -399,32 +399,41 @@ function hoursPanels(all,bs){
  <div class="pn w"><h3>Over budget</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Estimated</th><th>Logged</th><th>Over by</th></tr>${ob.map(i=>`<tr><td><button class="lnk" data-a="upd" data-id="${i.id}">${esc(i.name)}</button></td><td>${esc(i.board)}</td><td>${esc(i.owner)||'—'}</td><td>${fh(i.est)}</td><td class="late">${fh(hrs(i.id))}</td><td class="late">${fh(hrs(i.id)-i.est)}</td></tr>`).join('')||'<tr><td colspan="6" class="cnt">No items are over their estimate.</td></tr>'}</table></div></div>`}
 const hb2=(l,v,m)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${v/m*100}%;background:var(--accent)"></i></div><b>${v}</b></div>`;
 const teams=()=>((D.settings.teams||{}).list)||[];
+const myEmail=()=>((auth0&&auth0.currentUser&&auth0.currentUser.email)||'').toLowerCase();
+const admins=()=>((D.settings.teams||{}).admins)||[];
+const isAdmin=()=>!admins().length||admins().includes(myEmail());
+const canSeeTeam=t=>isAdmin()||!(t.emails&&t.emails.length)||t.emails.includes(myEmail());
+const canSee=b=>{if(isAdmin())return true;const t=teams().find(x=>x.id===b.teamId);return !t||canSeeTeam(t)};
 const dlive=()=>live().filter(b=>!st.dteam||(st.dteam==='__none'?!teams().some(t=>t.id===b.teamId):b.teamId===st.dteam));
 const bdBtn=b=>`<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}">${esc(b.name)}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></button>`;
-function boardList(){const L=live(),T=teams();if(!T.length)return L.map(bdBtn).join('');const ids=new Set(T.map(t=>t.id));let h='';
+function boardList(){const L=live(),T=teams().filter(canSeeTeam);if(!T.length)return L.map(bdBtn).join('');const ids=new Set(T.map(t=>t.id));let h='';
  T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=`<div class="th2">${esc(t.name)}</div>`+(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>')});
  const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+='<div class="th2">No team</div>'+rest.map(bdBtn).join('');return h}
-const tsel=b=>teams().length?`<select class="dsel" data-bt="1" aria-label="Team of this board"><option value="">No team</option>${teams().map(t=>`<option value="${t.id}" ${b.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:'';
-const dteamSel=()=>teams().length?`<select class="dsel" data-dt="1" aria-label="Filter dashboard by team"><option value="">Team: all</option>${teams().map(t=>`<option value="${t.id}" ${st.dteam===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__none" ${st.dteam==='__none'?'selected':''}>No team</option></select>`:'';
+const tsel=b=>teams().length&&isAdmin()?`<select class="dsel" data-bt="1" aria-label="Team of this board"><option value="">No team</option>${teams().map(t=>`<option value="${t.id}" ${b.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:'';
+const dteamSel=()=>teams().filter(canSeeTeam).length?`<select class="dsel" data-dt="1" aria-label="Filter dashboard by team"><option value="">Team: all</option>${teams().filter(canSeeTeam).map(t=>`<option value="${t.id}" ${st.dteam===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__none" ${st.dteam==='__none'?'selected':''}>No team</option></select>`:'';
 document.addEventListener('change',e=>{const d=e.target.dataset;if(!d)return;if(d.bt!==undefined&&B()){put('boards',B().id,{teamId:e.target.value})}else if(d.dt!==undefined){st.dteam=e.target.value;renderAll()}});
 const OV='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px',BOX='background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3);';
-function boardDialog(){return new Promise(res=>{const T=teams(),cur=(B()&&B().teamId)||(st.dteam&&st.dteam!=='__none'?st.dteam:''),o=document.createElement('div');o.style.cssText=OV;
+function boardDialog(){return new Promise(res=>{const T=teams().filter(canSeeTeam),cur=(B()&&B().teamId)||(st.dteam&&st.dteam!=='__none'?st.dteam:''),o=document.createElement('div');o.style.cssText=OV;
  o.innerHTML=`<div style="${BOX}width:min(380px,100%)"><div style="font-weight:600;margin-bottom:12px">New board</div><input id="bn" class="ti" maxlength="80" placeholder="Board name" style="width:100%;margin-bottom:10px">${T.length?`<select id="bt" class="ti" style="width:100%" aria-label="Team"><option value="">No team</option>${T.map(t=>`<option value="${t.id}" ${t.id===cur?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:''}<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Create</button></div></div>`;
  const done=v=>{o.remove();res(v)},ok=()=>{const n=o.querySelector('#bn').value.trim();if(!n)return;const t=o.querySelector('#bt');done({name:n,teamId:t?t.value:''})};
  o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')done(null);else if(a==='ok')ok()};
  o.onkeydown=e=>{if(e.key==='Enter')ok();if(e.key==='Escape')done(null)};document.body.appendChild(o);o.querySelector('#bn').focus()})}
-function openTeams(){let rows=teams().map(t=>({...t}));const o=document.createElement('div');o.style.cssText=OV;
- const draw=()=>{o.innerHTML=`<div style="${BOX}width:min(440px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Teams</div><div class="cnt" style="margin:4px 0 12px">Group your boards by team and name the teams anything you like. Deleting a team moves its boards to "No team". This is for organizing boards, not for restricting who can see them.</div>
- ${rows.map((r,i)=>`<div style="display:grid;grid-template-columns:1fr 32px;gap:6px;margin-bottom:8px"><input class="ti" value="${esc(r.name)}" data-i="${i}" maxlength="40" aria-label="Team name"><button class="x" data-i="${i}" data-s="rm" aria-label="Remove team">×</button></div>`).join('')||'<div class="cnt">No teams yet. Click Add team.</div>'}
- <div style="display:flex;justify-content:space-between;margin-top:14px"><button class="btn" data-s="add">+ Add team</button><span style="display:flex;gap:8px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></span></div></div>`};
- o.addEventListener('input',e=>{const i=e.target.dataset.i;if(i!==undefined&&e.target.tagName==='INPUT')rows[i].name=e.target.value});
- o.addEventListener('click',e=>{const t=e.target,a=t.dataset&&t.dataset.s;if(t===o||a==='x'){o.remove();return}if(!a)return;
-  if(a==='add')rows.push({id:uid(),name:'Team '+(rows.length+1)});else if(a==='rm')rows.splice(+t.dataset.i,1);
-  else if(a==='ok'){put('settings','teams',{list:rows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim()}))},true);o.remove();toast('Teams saved');return}
+function openTeams(){const cur=D.settings.teams||{};let rows=teams().map(t=>({id:t.id,name:t.name,emails:(t.emails||[]).join('\n')})),adm=(cur.admins||[]).join('\n');const o=document.createElement('div');o.style.cssText=OV;
+ const draw=()=>{o.innerHTML=`<div style="${BOX}width:min(520px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Teams and access</div><div class="cnt" style="margin:4px 0 12px">Name your teams, then list the Google emails that can see each team's boards, one per line. Leave a team's list empty to let everyone see it. Admins see every board and manage teams. Visibility only takes effect once at least one admin is set.</div>
+ ${rows.map((r,i)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px"><div style="display:grid;grid-template-columns:1fr 32px;gap:6px;margin-bottom:6px"><input class="ti" value="${esc(r.name)}" data-i="${i}" data-k="name" maxlength="40" aria-label="Team name"><button class="x" data-i="${i}" data-s="rm" aria-label="Remove team">×</button></div><textarea class="ti" rows="3" data-i="${i}" data-k="emails" placeholder="Emails that can see this team (empty = everyone)" style="width:100%" aria-label="Team emails">${esc(r.emails)}</textarea></div>`).join('')||'<div class="cnt">No teams yet. Click Add team.</div>'}
+ <button class="btn" data-s="add" style="margin-bottom:14px">+ Add team</button>
+ <div class="cnt" style="margin-bottom:4px"><b>Admins</b> (see all teams and manage teams)</div><textarea class="ti" id="adm" rows="3" style="width:100%" placeholder="you@gmail.com" aria-label="Admin emails">${esc(adm)}</textarea>
+ <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></div></div>`};
+ const em=t=>[...new Set(String(t).toLowerCase().split(/[\s,;]+/).filter(x=>/^\S+@\S+\.\S+$/.test(x)))];
+ o.addEventListener('input',e=>{const t=e.target;if(t.id==='adm')adm=t.value;else if(t.dataset.i!==undefined)rows[t.dataset.i][t.dataset.k]=t.value});
+ o.addEventListener('click',async e=>{const t=e.target,a=t.dataset&&t.dataset.s;if(t===o||a==='x'){o.remove();return}if(!a)return;
+  if(a==='add')rows.push({id:uid(),name:'Team '+(rows.length+1),emails:''});else if(a==='rm')rows.splice(+t.dataset.i,1);
+  else if(a==='ok'){const A=em(adm);if(A.length&&!A.includes(myEmail())&&!await ask('You are not in the admin list, so you will lose access to this dialog. Save anyway?'))return;
+   put('settings','teams',{list:rows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),emails:em(r.emails)})),admins:A},true);o.remove();toast('Saved');return}
   draw()});
  o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});draw();document.body.appendChild(o)}
 function renderSide(){syncStatuses();
- document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+boardList()+'<button class="bd ghost" data-a="newboard">+ New board</button><button class="bd ghost" data-a="teams" style="margin-top:4px">Manage teams</button>'+archHtml()+signoutHtml();
+ document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+boardList()+'<button class="bd ghost" data-a="newboard">+ New board</button>'+(isAdmin()?'<button class="bd ghost" data-a="teams" style="margin-top:4px">Manage teams</button>':'')+''+archHtml()+signoutHtml();
 }
 function renderHead(){
  const b=B(),all=b.groups.flatMap(g=>g.items),done=all.filter(i=>kd(i)===3).length,ov=all.filter(late).length;
@@ -483,7 +492,7 @@ function renderDash(){
  const ow={};all.filter(i=>kd(i)!==3).forEach(i=>{const k=(i.owner||'').trim()||'Unassigned';(ow[k]=ow[k]||{o:0,l:0}).o++;if(late(i))ow[k].l++});
  const ol=Object.entries(ow).sort((a,b)=>b[1].o-a[1].o).slice(0,8),om=ol.length?ol[0][1].o:0;
  const att=all.filter(i=>kd(i)===2||late(i)).sort((a,b)=>(a.due||'9')<(b.due||'9')?-1:1).slice(0,10);
- const rec=srt(Object.values(D.updates)).reverse().slice(0,8).map(u=>{const it=D.items[u.itemId],bd=D.boards[u.boardId];return it?`<div class="u${u.auto?' auto':''}"><div class="uh"><b>${esc(u.author||'Someone')}</b><span>${esc(fts(u.ts))}</span><button class="lnk" data-a="upd" data-id="${it.id}">${esc(it.name)}</button><span>${esc(bd?bd.name:'')}</span></div><div>${u.kind==='time'?'⏱ '+fh(u.hours)+' logged'+(u.text?': '+esc(u.text):''):esc(u.text)}</div></div>`:''}).join('')||'<span class="cnt">No updates posted yet.</span>';
+ const rec=srt(Object.values(D.updates)).reverse().slice(0,8).map(u=>{const it=D.items[u.itemId],bd=D.boards[u.boardId];return it&&bd&&canSee(bd)?`<div class="u${u.auto?' auto':''}"><div class="uh"><b>${esc(u.author||'Someone')}</b><span>${esc(fts(u.ts))}</span><button class="lnk" data-a="upd" data-id="${it.id}">${esc(it.name)}</button><span>${esc(bd?bd.name:'')}</span></div><div>${u.kind==='time'?'⏱ '+fh(u.hours)+' logged'+(u.text?': '+esc(u.text):''):esc(u.text)}</div></div>`:''}).join('')||'<span class="cnt">No updates posted yet.</span>';
  const estT=all.reduce((a,i)=>a+(+i.est||0),0),actT=all.reduce((a,i)=>a+hrs(i.id),0),hpan=hoursPanels(all,bs);
  const kp=[['Boards',bs.length],['Items',n],['Done',pct(done,n)+'%'],['In progress',kc(1)],['Stuck',kc(2)],['Due soon',c(soon)],['Overdue',ov],['Est. hours',fh(estT)],['Logged',fh(actT)]];
  document.getElementById('head').innerHTML=`<div class="dt">Dashboard</div><div class="tabs"><button class="${st.dview==='cal'?'':'on'}" data-a="dview" data-v="ov">Overview</button><button class="${st.dview==='cal'?'on':''}" data-a="dview" data-v="cal">Calendar</button></div>${dteamSel()}${dsel()}<button class="btn" data-a="statuses">Edit statuses</button><button class="btn" data-a="team">People</button><button class="btn" data-a="report">Report</button><div class="stats">All <b>${bs.length}</b> boards combined, updated live</div>`;
@@ -503,7 +512,7 @@ function renderDash(){
 }
 function renderAll(){renderSide();
  if(st.dash)renderDash();
- else if(!B()){document.getElementById('head').innerHTML='';document.getElementById('main').innerHTML='<div class="empty">No boards yet.<br><br><button class="btn pri" data-a="newboard">Create the first board</button> <button class="btn" data-a="import">Import backup</button></div>'}
+ else if(!B()){document.getElementById('head').innerHTML='';document.getElementById('main').innerHTML=(db&&!setReady)?'<div class="empty">Loading…</div>':'<div class="empty">No boards yet.<br><br><button class="btn pri" data-a="newboard">Create the first board</button> <button class="btn" data-a="import">Import backup</button></div>'}
  else{renderHead();renderMain()}save()}
 document.addEventListener('click',async e=>{
  const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a,b=B();
