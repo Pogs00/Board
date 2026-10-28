@@ -400,7 +400,7 @@ function hoursPanels(all,bs){
 const hb2=(l,v,m)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${v/m*100}%;background:var(--accent)"></i></div><b>${v}</b></div>`;
 const teams=()=>((D.settings.teams||{}).list)||[];
 const myEmail=()=>((auth0&&auth0.currentUser&&auth0.currentUser.email)||'').toLowerCase();
-const admins=()=>((D.settings.teams||{}).admins)||[];
+const admins=()=>((D.settings.access||D.settings.teams||{}).admins)||[];
 const isAdmin=()=>!admins().length||admins().includes(myEmail());
 const canSeeTeam=t=>isAdmin()||!(t.emails&&t.emails.length)||t.emails.includes(myEmail());
 const canSee=b=>{if(isAdmin())return true;const t=teams().find(x=>x.id===b.teamId);return !t||canSeeTeam(t)};
@@ -418,18 +418,23 @@ function boardDialog(){return new Promise(res=>{const T=teams().filter(canSeeTea
  const done=v=>{o.remove();res(v)},ok=()=>{const n=o.querySelector('#bn').value.trim();if(!n)return;const t=o.querySelector('#bt');done({name:n,teamId:t?t.value:''})};
  o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')done(null);else if(a==='ok')ok()};
  o.onkeydown=e=>{if(e.key==='Enter')ok();if(e.key==='Escape')done(null)};document.body.appendChild(o);o.querySelector('#bn').focus()})}
-function openTeams(){const cur=D.settings.teams||{};let rows=teams().map(t=>({id:t.id,name:t.name,emails:(t.emails||[]).join('\n')})),adm=(cur.admins||[]).join('\n');const o=document.createElement('div');o.style.cssText=OV;
- const draw=()=>{o.innerHTML=`<div style="${BOX}width:min(520px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Teams and access</div><div class="cnt" style="margin:4px 0 12px">Name your teams, then list the Google emails that can see each team's boards, one per line. Leave a team's list empty to let everyone see it. Admins see every board and manage teams. Visibility only takes effect once at least one admin is set.</div>
+function openTeams(){const cur=D.settings.teams||{},acc=D.settings.access;let rows=teams().map(t=>({id:t.id,name:t.name,emails:(t.emails||[]).join('\n')})),adm=admins().join('\n');
+ const union=[...new Set([...admins(),...teams().flatMap(t=>t.emails||[])])];let alw=(acc&&acc.emails?acc.emails:union).join('\n');const o=document.createElement('div');o.style.cssText=OV;
+ const draw=()=>{o.innerHTML=`<div style="${BOX}width:min(540px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Teams and access</div><div class="cnt" style="margin:4px 0 12px">Name your teams, then list the Google emails that can see each team's boards, one per line. Leave a team's list empty to let everyone see it.</div>
  ${rows.map((r,i)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px"><div style="display:grid;grid-template-columns:1fr 32px;gap:6px;margin-bottom:6px"><input class="ti" value="${esc(r.name)}" data-i="${i}" data-k="name" maxlength="40" aria-label="Team name"><button class="x" data-i="${i}" data-s="rm" aria-label="Remove team">×</button></div><textarea class="ti" rows="3" data-i="${i}" data-k="emails" placeholder="Emails that can see this team (empty = everyone)" style="width:100%" aria-label="Team emails">${esc(r.emails)}</textarea></div>`).join('')||'<div class="cnt">No teams yet. Click Add team.</div>'}
  <button class="btn" data-s="add" style="margin-bottom:14px">+ Add team</button>
- <div class="cnt" style="margin-bottom:4px"><b>Admins</b> (see all teams and manage teams)</div><textarea class="ti" id="adm" rows="3" style="width:100%" placeholder="you@gmail.com" aria-label="Admin emails">${esc(adm)}</textarea>
+ <div class="cnt" style="margin-bottom:4px"><b>Admins</b> (see all teams, manage teams and access)</div><textarea class="ti" id="adm" rows="3" style="width:100%" placeholder="you@gmail.com" aria-label="Admin emails">${esc(adm)}</textarea>
+ <div class="cnt" style="margin:12px 0 4px"><b>Allowed emails</b> (can sign in and open this app; admins are added automatically)</div><textarea class="ti" id="alw" rows="4" style="width:100%" placeholder="one email per line" aria-label="Allowed emails">${esc(alw)}</textarea>
+ <div class="cnt" style="margin-top:6px">The allowed list only takes effect after the database rules from SETUP.md (step 5b) are published.</div>
  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></div></div>`};
  const em=t=>[...new Set(String(t).toLowerCase().split(/[\s,;]+/).filter(x=>/^\S+@\S+\.\S+$/.test(x)))];
- o.addEventListener('input',e=>{const t=e.target;if(t.id==='adm')adm=t.value;else if(t.dataset.i!==undefined)rows[t.dataset.i][t.dataset.k]=t.value});
+ o.addEventListener('input',e=>{const t=e.target;if(t.id==='adm')adm=t.value;else if(t.id==='alw')alw=t.value;else if(t.dataset.i!==undefined)rows[t.dataset.i][t.dataset.k]=t.value});
  o.addEventListener('click',async e=>{const t=e.target,a=t.dataset&&t.dataset.s;if(t===o||a==='x'){o.remove();return}if(!a)return;
   if(a==='add')rows.push({id:uid(),name:'Team '+(rows.length+1),emails:''});else if(a==='rm')rows.splice(+t.dataset.i,1);
   else if(a==='ok'){let A=em(adm),auto=false;if(!A.length&&myEmail()){A=[myEmail()];auto=true}else if(!A.includes(myEmail())&&!await ask('You are not in the admin list, so you will lose access to this dialog. Save anyway?'))return;
-   put('settings','teams',{list:rows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),emails:em(r.emails)})),admins:A},true);o.remove();toast(auto?'Saved. You were added as the first admin.':'Saved');return}
+   const E=[...new Set([...em(alw),...A])];
+   put('settings','teams',{list:rows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim(),emails:em(r.emails)}))},true);
+   put('settings','access',{emails:E,admins:A},true);o.remove();toast(auto?'Saved. You were added as the first admin.':'Saved');return}
   draw()});
  o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});draw();document.body.appendChild(o)}
 function renderSide(){syncStatuses();
