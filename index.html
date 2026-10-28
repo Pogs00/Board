@@ -133,6 +133,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ti{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;min-width:0}
 .tm{width:100%;height:100%;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;border-radius:0}.tm:hover{background:var(--hover)}
 .tm.ov{background:#d6455d;color:#fff;font-weight:600}.tm.warn{background:#e0a100;color:#fff;font-weight:600}.tm.ok{color:#1f9d6b;font-weight:600}
+.th2{margin:14px 10px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.6}.th3{margin:0 10px 4px;font-size:12px;opacity:.4}
 @media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
 </style>
 </head>
@@ -281,8 +282,8 @@ function fbar(){const its=B().groups.flatMap(g=>g.items),nm=me()!=='Someone'?me(
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.fs;if(k){fs[k]=e.target.value;renderAll()}});
 function openTeam(){const cur=team().length?team():[...new Set(Object.values(D.items).map(i=>(i.owner||'').trim()).filter(Boolean))];
  const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px';
- o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(400px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Team</div><div class="cnt" style="margin:4px 0 10px">One name per line. These become the Owner dropdown on every board. Renaming someone here does not rename them on existing items.</div><textarea id="tm" rows="8" style="width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit">${esc(cur.join('\n'))}</textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></div></div>`;
- o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='ok'){const l=[...new Set(o.querySelector('#tm').value.split('\n').map(x=>x.trim()).filter(Boolean))];put('settings','team',{list:l},true);o.remove();toast('Team saved')}};
+ o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(400px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">People</div><div class="cnt" style="margin:4px 0 10px">One name per line. These become the Owner dropdown on every board. Renaming someone here does not rename them on existing items.</div><textarea id="tm" rows="8" style="width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit">${esc(cur.join('\n'))}</textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></div></div>`;
+ o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='ok'){const l=[...new Set(o.querySelector('#tm').value.split('\n').map(x=>x.trim()).filter(Boolean))];put('settings','team',{list:l},true);o.remove();toast('People saved')}};
  o.onkeydown=e=>{if(e.key==='Escape')o.remove()};document.body.appendChild(o);o.querySelector('#tm').focus()}
 function importBackup(){const f=document.createElement('input');f.type='file';f.accept='.json,application/json';
  f.onchange=async()=>{const file=f.files[0];if(!file)return;let d;try{d=JSON.parse(await file.text())}catch(e){toast('That file is not valid JSON');return}
@@ -292,14 +293,14 @@ function importBackup(){const f=document.createElement('input');f.type='file';f.
   bulk=true;cols.forEach(c=>Object.entries(d[c]||{}).forEach(([id,doc])=>{if(doc&&typeof doc==='object')put(c,id,doc,true)}));bulk=false;renderAll();toast(`Imported ${n} records`)};f.click()}
 function renderCal(allB){const b=allB?null:B();if(!st.cal)st.cal=today.slice(0,7);const[y,m]=st.cal.split('-').map(Number),tn=dn(today);
  const first=Date.UTC(y,m-1,1)/864e5,dim=new Date(Date.UTC(y,m,0)).getUTCDate(),off=new Date(first*864e5).getUTCDay(),start=first-off,end=start+Math.ceil((off+dim)/7)*7-1,by={};
- (allB?live().flatMap(x=>x.groups.flatMap(g=>g.items.map(i=>({...i,board:x.name})))).filter(fo):b.groups.flatMap(g=>g.items).filter(match)).forEach(it=>{const p=span(it);if(!p)return;for(let d=Math.max(p[0],start);d<=Math.min(p[1],end);d++)(by[d]=by[d]||[]).push(it)});
+ (allB?dlive().flatMap(x=>x.groups.flatMap(g=>g.items.map(i=>({...i,board:x.name})))).filter(fo):b.groups.flatMap(g=>g.items).filter(match)).forEach(it=>{const p=span(it);if(!p)return;for(let d=Math.max(p[0],start);d<=Math.min(p[1],end);d++)(by[d]=by[d]||[]).push(it)});
  let cells='';for(let d=start;d<=end;d++){const dt=new Date(d*864e5),l=by[d]||[];
   cells+=`<div class="cd${dt.getUTCMonth()!==m-1?' out':''}${d===tn?' tdy':''}"><span>${dt.getUTCDate()}</span>${l.slice(0,3).map(it=>`<button class="ch${late(it)?' ov':soon(it)?' sn':''}" data-a="upd" data-id="${it.id}" style="background:${SC[it.status]||'#888'}" title="${esc(it.name)}${it.board?' ('+esc(it.board)+')':''}">${it.board?'<b style="opacity:.8">'+esc(it.board)+':</b> ':''}${esc(it.name)}</button>`).join('')}${l.length>3?`<div class="more">+${l.length-3} more</div>`:''}</div>`}
  return `<div class="gtool"><button class="btn" data-a="cprev" aria-label="Previous month">‹</button><b style="color:var(--ink);min-width:150px;text-align:center">${new Date(Date.UTC(y,m-1,1)).toLocaleString(undefined,{month:'long',year:'numeric',timeZone:'UTC'})}</b><button class="btn" data-a="cnext" aria-label="Next month">›</button><button class="btn" data-a="ctoday">Today</button><span>Items show on every day from start to due date. Click one for notes.</span></div><div style="overflow-x:auto"><div class="cg">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="cw">${x}</div>`).join('')}${cells}</div></div>`}
 const EJ='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',JP='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',AT='https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
 const _ld={};const lib=u=>_ld[u]||(_ld[u]=new Promise((ok,no)=>{const e=document.createElement('script');e.src=u;e.onload=ok;e.onerror=()=>{delete _ld[u];no(new Error('Could not load the report library. Check your connection and try again.'))};document.head.appendChild(e)}));
 const rgb=h=>[1,3,5].map(i=>parseInt((h||'#888888').slice(i,i+2),16)),xc=h=>'FF'+(h||'#888888').slice(1).toUpperCase();
-const repData=all=>(all?live():[B()]).filter(Boolean).map(b=>({name:b.name,groups:b.groups.map(g=>({name:g.name,color:g.color,items:g.items}))}));
+const repData=all=>(all===true?live():all?live().filter(b=>b.teamId===all):[B()]).filter(Boolean).map(b=>({name:b.name,groups:b.groups.map(g=>({name:g.name,color:g.color,items:g.items}))}));
 async function xlsxReport(data,layout){await lib(EJ);const wb=new ExcelJS.Workbook(),used=new Set(['summary']);
  const nm=n=>{const b=n.replace(/[\\\/?*\[\]:]/g,'').slice(0,26)||'Board';let x=b,i=2;while(used.has(x.toLowerCase()))x=b+' '+i++;used.add(x.toLowerCase());return x};
  const fill=a=>({type:'pattern',pattern:'solid',fgColor:{argb:a}});
@@ -360,10 +361,10 @@ function openReport(){if(!live().length){toast('Create a board first');return}
  const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px';
  const sel=(id,l,opts)=>`<label style="display:block;margin-bottom:12px"><div class="cnt" style="margin-bottom:4px">${l}</div><select id="${id}" class="dsel" style="width:100%">${opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label>`;
  o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(380px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font:700 18px 'Bricolage Grotesque',sans-serif;margin-bottom:14px">Create report</div>
- ${sel('rs','Boards',[['one','This board'+(B()?' ('+esc(B().name)+')':'')],['all','All boards (one sheet or section each)']])}${sel('rl','Layout',[['table','Table'],['kanban','Kanban'],['gantt','Gantt']])}${sel('rf','Format',[['xlsx','Excel (.xlsx)'],['pdf','PDF']])}
+ ${sel('rs','Boards',[['one','This board'+(B()?' ('+esc(B().name)+')':'')],['all','All boards (one sheet or section each)'],...teams().map(t=>[t.id,esc('All boards in '+t.name)])])}${sel('rl','Layout',[['table','Table'],['kanban','Kanban'],['gantt','Gantt']])}${sel('rf','Format',[['xlsx','Excel (.xlsx)'],['pdf','PDF']])}
  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="go">Generate</button></div></div>`;
  if(st.dash||!B())o.querySelector('#rs').value='all';
- o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='go'){const v=id=>o.querySelector('#'+id).value,opt={all:v('rs')==='all',layout:v('rl'),fmt:v('rf')};o.remove();runReport(opt)}};
+ o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='go'){const v=id=>o.querySelector('#'+id).value,opt={all:v('rs')==='all'?true:v('rs')==='one'?false:v('rs'),layout:v('rl'),fmt:v('rf')};o.remove();runReport(opt)}};
  o.onkeydown=e=>{if(e.key==='Escape')o.remove()};document.body.appendChild(o)}
 let auth0=null;
 function dl(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
@@ -397,17 +398,42 @@ function hoursPanels(all,bs){
  <div class="pn"><h3>Hours logged by person</h3>${pl.length?pl.map(([k,v])=>hb2(k,Math.round(v*100)/100,pm)).join(''):'<span class="cnt">No time logged yet.</span>'}</div>
  <div class="pn w"><h3>Over budget</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Estimated</th><th>Logged</th><th>Over by</th></tr>${ob.map(i=>`<tr><td><button class="lnk" data-a="upd" data-id="${i.id}">${esc(i.name)}</button></td><td>${esc(i.board)}</td><td>${esc(i.owner)||'—'}</td><td>${fh(i.est)}</td><td class="late">${fh(hrs(i.id))}</td><td class="late">${fh(hrs(i.id)-i.est)}</td></tr>`).join('')||'<tr><td colspan="6" class="cnt">No items are over their estimate.</td></tr>'}</table></div></div>`}
 const hb2=(l,v,m)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${v/m*100}%;background:var(--accent)"></i></div><b>${v}</b></div>`;
+const teams=()=>((D.settings.teams||{}).list)||[];
+const dlive=()=>live().filter(b=>!st.dteam||(st.dteam==='__none'?!teams().some(t=>t.id===b.teamId):b.teamId===st.dteam));
+const bdBtn=b=>`<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}">${esc(b.name)}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></button>`;
+function boardList(){const L=live(),T=teams();if(!T.length)return L.map(bdBtn).join('');const ids=new Set(T.map(t=>t.id));let h='';
+ T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=`<div class="th2">${esc(t.name)}</div>`+(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>')});
+ const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+='<div class="th2">No team</div>'+rest.map(bdBtn).join('');return h}
+const tsel=b=>teams().length?`<select class="dsel" data-bt="1" aria-label="Team of this board"><option value="">No team</option>${teams().map(t=>`<option value="${t.id}" ${b.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:'';
+const dteamSel=()=>teams().length?`<select class="dsel" data-dt="1" aria-label="Filter dashboard by team"><option value="">Team: all</option>${teams().map(t=>`<option value="${t.id}" ${st.dteam===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__none" ${st.dteam==='__none'?'selected':''}>No team</option></select>`:'';
+document.addEventListener('change',e=>{const d=e.target.dataset;if(!d)return;if(d.bt!==undefined&&B()){put('boards',B().id,{teamId:e.target.value})}else if(d.dt!==undefined){st.dteam=e.target.value;renderAll()}});
+const OV='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px',BOX='background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3);';
+function boardDialog(){return new Promise(res=>{const T=teams(),cur=(B()&&B().teamId)||(st.dteam&&st.dteam!=='__none'?st.dteam:''),o=document.createElement('div');o.style.cssText=OV;
+ o.innerHTML=`<div style="${BOX}width:min(380px,100%)"><div style="font-weight:600;margin-bottom:12px">New board</div><input id="bn" class="ti" maxlength="80" placeholder="Board name" style="width:100%;margin-bottom:10px">${T.length?`<select id="bt" class="ti" style="width:100%" aria-label="Team"><option value="">No team</option>${T.map(t=>`<option value="${t.id}" ${t.id===cur?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:''}<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Create</button></div></div>`;
+ const done=v=>{o.remove();res(v)},ok=()=>{const n=o.querySelector('#bn').value.trim();if(!n)return;const t=o.querySelector('#bt');done({name:n,teamId:t?t.value:''})};
+ o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')done(null);else if(a==='ok')ok()};
+ o.onkeydown=e=>{if(e.key==='Enter')ok();if(e.key==='Escape')done(null)};document.body.appendChild(o);o.querySelector('#bn').focus()})}
+function openTeams(){let rows=teams().map(t=>({...t}));const o=document.createElement('div');o.style.cssText=OV;
+ const draw=()=>{o.innerHTML=`<div style="${BOX}width:min(440px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Teams</div><div class="cnt" style="margin:4px 0 12px">Group your boards by team and name the teams anything you like. Deleting a team moves its boards to "No team". This is for organizing boards, not for restricting who can see them.</div>
+ ${rows.map((r,i)=>`<div style="display:grid;grid-template-columns:1fr 32px;gap:6px;margin-bottom:8px"><input class="ti" value="${esc(r.name)}" data-i="${i}" maxlength="40" aria-label="Team name"><button class="x" data-i="${i}" data-s="rm" aria-label="Remove team">×</button></div>`).join('')||'<div class="cnt">No teams yet. Click Add team.</div>'}
+ <div style="display:flex;justify-content:space-between;margin-top:14px"><button class="btn" data-s="add">+ Add team</button><span style="display:flex;gap:8px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></span></div></div>`};
+ o.addEventListener('input',e=>{const i=e.target.dataset.i;if(i!==undefined&&e.target.tagName==='INPUT')rows[i].name=e.target.value});
+ o.addEventListener('click',e=>{const t=e.target,a=t.dataset&&t.dataset.s;if(t===o||a==='x'){o.remove();return}if(!a)return;
+  if(a==='add')rows.push({id:uid(),name:'Team '+(rows.length+1)});else if(a==='rm')rows.splice(+t.dataset.i,1);
+  else if(a==='ok'){put('settings','teams',{list:rows.filter(r=>r.name.trim()).map(r=>({id:r.id,name:r.name.trim()}))},true);o.remove();toast('Teams saved');return}
+  draw()});
+ o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});draw();document.body.appendChild(o)}
 function renderSide(){syncStatuses();
- document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+live().map(b=>`<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}">${esc(b.name)}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></button>`).join('')+'<button class="bd ghost" data-a="newboard">+ New board</button>'+archHtml()+signoutHtml();
+ document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+boardList()+'<button class="bd ghost" data-a="newboard">+ New board</button><button class="bd ghost" data-a="teams" style="margin-top:4px">Manage teams</button>'+archHtml()+signoutHtml();
 }
 function renderHead(){
  const b=B(),all=b.groups.flatMap(g=>g.items),done=all.filter(i=>kd(i)===3).length,ov=all.filter(late).length;
- document.getElementById('head').innerHTML=`<input id="title" value="${esc(b.name)}" aria-label="Board name">
+ document.getElementById('head').innerHTML=`<input id="title" value="${esc(b.name)}" aria-label="Board name">${tsel(b)}
  <div class="tabs"><button class="${st.view==='table'?'on':''}" data-a="view" data-v="table">Table</button><button class="${st.view==='kanban'?'on':''}" data-a="view" data-v="kanban">Kanban</button><button class="${st.view==='gantt'?'on':''}" data-a="view" data-v="gantt">Gantt</button><button class="${st.view==='cal'?'on':''}" data-a="view" data-v="cal">Calendar</button></div>
  <input id="q" placeholder="Search items" value="${esc(q)}" aria-label="Search items">
  <button class="btn pri" data-a="addgroup">+ New group</button>
  <button class="btn" data-a="statuses">Statuses</button>
- <button class="btn" data-a="team">Team</button>
+ <button class="btn" data-a="team">People</button>
  <button class="btn" data-a="backup" title="Download all data as JSON">Export backup</button>
  <button class="btn" data-a="report">Report</button>
  <button class="btn" data-a="import">Import backup</button>
@@ -450,7 +476,7 @@ function renderMain(){const m=document.getElementById('main'),g0=m.querySelector
  m.innerHTML=st.view==='table'?renderTable():st.view==='kanban'?renderKanban():st.view==='cal'?renderCal():renderGantt();
  const g1=m.querySelector('.gt');if(g1){if(sx!==null&&!window._gz){g1.scrollLeft=sx;g1.scrollTop=sy}else g1.scrollLeft=Math.max(0,(dn(today)-gLo)*(st.gz||30)-120);window._gz=0}}
 function renderDash(){
- const bs=live(),all=bs.flatMap(b=>b.groups.flatMap(g=>g.items.map(i=>({...i,board:b.name})))).filter(fo),n=all.length;
+ const bs=dlive(),all=bs.flatMap(b=>b.groups.flatMap(g=>g.items.map(i=>({...i,board:b.name})))).filter(fo),n=all.length;
  const c=f=>all.filter(f).length,done=c(i=>kd(i)===3),ov=c(late),pct=(a,t)=>t?Math.round(a/t*100):0;
  const hb=(l,v,m,col,v2)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${m?(v-(v2||0))/m*100:0}%;background:${col}"></i>${v2?`<i style="width:${v2/m*100}%;background:#d6455d"></i>`:''}</div><b>${v}</b></div>`;
  const kc=k=>c(x=>kd(x)===k),sc=S.map((s,i)=>c(x=>x.status===i)),pc=P.map((s,i)=>c(x=>x.priority===i));
@@ -460,7 +486,7 @@ function renderDash(){
  const rec=srt(Object.values(D.updates)).reverse().slice(0,8).map(u=>{const it=D.items[u.itemId],bd=D.boards[u.boardId];return it?`<div class="u${u.auto?' auto':''}"><div class="uh"><b>${esc(u.author||'Someone')}</b><span>${esc(fts(u.ts))}</span><button class="lnk" data-a="upd" data-id="${it.id}">${esc(it.name)}</button><span>${esc(bd?bd.name:'')}</span></div><div>${u.kind==='time'?'⏱ '+fh(u.hours)+' logged'+(u.text?': '+esc(u.text):''):esc(u.text)}</div></div>`:''}).join('')||'<span class="cnt">No updates posted yet.</span>';
  const estT=all.reduce((a,i)=>a+(+i.est||0),0),actT=all.reduce((a,i)=>a+hrs(i.id),0),hpan=hoursPanels(all,bs);
  const kp=[['Boards',bs.length],['Items',n],['Done',pct(done,n)+'%'],['In progress',kc(1)],['Stuck',kc(2)],['Due soon',c(soon)],['Overdue',ov],['Est. hours',fh(estT)],['Logged',fh(actT)]];
- document.getElementById('head').innerHTML=`<div class="dt">Dashboard</div><div class="tabs"><button class="${st.dview==='cal'?'':'on'}" data-a="dview" data-v="ov">Overview</button><button class="${st.dview==='cal'?'on':''}" data-a="dview" data-v="cal">Calendar</button></div>${dsel()}<button class="btn" data-a="statuses">Edit statuses</button><button class="btn" data-a="team">Team</button><button class="btn" data-a="report">Report</button><div class="stats">All <b>${bs.length}</b> boards combined, updated live</div>`;
+ document.getElementById('head').innerHTML=`<div class="dt">Dashboard</div><div class="tabs"><button class="${st.dview==='cal'?'':'on'}" data-a="dview" data-v="ov">Overview</button><button class="${st.dview==='cal'?'on':''}" data-a="dview" data-v="cal">Calendar</button></div>${dteamSel()}${dsel()}<button class="btn" data-a="statuses">Edit statuses</button><button class="btn" data-a="team">People</button><button class="btn" data-a="report">Report</button><div class="stats">All <b>${bs.length}</b> boards combined, updated live</div>`;
  if(st.dview==='cal'){document.getElementById('main').innerHTML=renderCal(true);return}
  const rows=bs.map(b=>{const it=b.groups.flatMap(g=>g.items).filter(fo),d=it.filter(i=>kd(i)===3).length,o=it.filter(late).length;
   return `<tr><td><button class="lnk" data-a="pick" data-id="${b.id}">${esc(b.name)}</button></td><td>${it.length}</td><td style="min-width:130px"><div class="ht"><i style="width:${pct(d,it.length)}%;background:${'#1f9d6b'}"></i></div></td><td>${pct(d,it.length)}%</td><td>${it.filter(i=>kd(i)===2).length}</td><td class="${o?'late':''}">${o}</td><td>${fh(it.reduce((a,i)=>a+(+i.est||0),0))}</td><td>${fd(it.reduce((a,i)=>a+(+i.est||0),0))}</td></tr>`}).join('');
@@ -486,6 +512,7 @@ document.addEventListener('click',async e=>{
  else if(a==='dash')st.dash=true;
  else if(a==='statuses'){openStatuses();return}
  else if(a==='team'){openTeam();return}
+ else if(a==='teams'){openTeams();return}
  else if(a==='glogin'){gLogin();return}
  else if(a==='signout'){auth0.signOut().then(()=>location.reload());return}
  else if(a==='report'){openReport();return}
@@ -504,7 +531,7 @@ document.addEventListener('click',async e=>{
  else if(a==='postupd'){postUpd();return}
  else if(a==='posttime'){postTime();return}
  else if(a==='delupd'){del('updates',t.dataset.id);renderUpd();return}
- else if(a==='newboard'){const n=await ask('Board name',1);if(!n)return;const id=uid();st.active=id;st.dash=false;put('boards',id,{name:n,order:now()});newGroup(id,'To do',0)}
+ else if(a==='newboard'){const r=await boardDialog();if(!r)return;const id=uid();st.active=id;st.dash=false;put('boards',id,{name:r.name,teamId:r.teamId,order:now()});newGroup(id,'To do',0)}
  else if(a==='delboard'){if(!await ask('Archive this board? It disappears for everyone but can be restored from the sidebar.'))return;put('boards',b.id,{archived:true,archivedAt:now()});st.active=null}
  else if(a==='view')st.view=t.dataset.v;
  else if(a==='addgroup'){const n=await ask('Group name',1);if(!n)return;newGroup(b.id,n,b.groups.length)}
