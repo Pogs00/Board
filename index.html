@@ -133,7 +133,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ti{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;min-width:0}
 .tm{width:100%;height:100%;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;border-radius:0}.tm:hover{background:var(--hover)}
 .tm.ov{background:#d6455d;color:#fff;font-weight:600}.tm.warn{background:#e0a100;color:#fff;font-weight:600}.tm.ok{color:#1f9d6b;font-weight:600}
-.th2{margin:14px 0 4px;padding:4px 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.6;display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;color:inherit;font-family:inherit;text-align:left;cursor:pointer;border-radius:6px}.th2:hover{opacity:1;background:rgba(255,255,255,.05)}.th2 .chev{display:inline-block;width:10px;font-size:9px;transition:transform .15s}.th2.min .chev{transform:rotate(-90deg)}.th2 i{font-style:normal;margin-left:auto;font-size:11px;opacity:.8}.th3{margin:0 10px 4px;font-size:12px;opacity:.4}
+.th2{margin:14px 0 4px;padding:4px 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.6;display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;color:inherit;font-family:inherit;text-align:left;cursor:pointer;border-radius:6px}.bd .bi{display:flex;align-items:center;gap:6px;flex:none}.bd i.od,.th2 i.od{background:#d6455d;color:#fff;opacity:1;border-radius:10px;padding:0 6px;font-weight:600;font-size:11px;line-height:17px;min-width:17px;text-align:center}.th2 .bi{margin-left:auto;display:flex;align-items:center;gap:6px}.th2 .bi i{margin-left:0}
+.bd[draggable=true],.th2[draggable=true]{cursor:grab}.dragging{opacity:.4}.bd.dtop{box-shadow:inset 0 2px 0 #fff}.bd.dbot{box-shadow:inset 0 -2px 0 #fff}.th2.dtop{box-shadow:inset 0 2px 0 #fff}.th2.dbot{box-shadow:inset 0 -2px 0 #fff}.th2.dinto{opacity:1;background:rgba(255,255,255,.14)}
+.th2:hover{opacity:1;background:rgba(255,255,255,.05)}.th2 .chev{display:inline-block;width:10px;font-size:9px;transition:transform .15s}.th2.min .chev{transform:rotate(-90deg)}.th2 i{font-style:normal;margin-left:auto;font-size:11px;opacity:.8}.th3{margin:0 10px 4px;font-size:12px;opacity:.4}
 @media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
 </style>
 </head>
@@ -407,11 +409,42 @@ const isAdmin=()=>!admins().length||admins().includes(myEmail());
 const canSeeTeam=t=>isAdmin()||!(t.emails&&t.emails.length)||t.emails.includes(myEmail());
 const canSee=b=>{if(isAdmin())return true;const t=teams().find(x=>x.id===b.teamId);return !t||canSeeTeam(t)};
 const dlive=()=>live().filter(b=>!st.dteam||(st.dteam==='__none'?!teams().some(t=>t.id===b.teamId):b.teamId===st.dteam));
-const bdBtn=b=>`<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}">${esc(b.name)}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></button>`;
-const thead=(id,name,n)=>`<button class="th2 ${tfold[id]?'min':''}" data-a="tfold" data-id="${id}" aria-expanded="${!tfold[id]}" title="${tfold[id]?'Expand':'Minimize'} ${esc(name)}"><span class="chev">▼</span>${esc(name)}${tfold[id]?`<i>${n}</i>`:''}</button>`;
+const tkey=b=>teams().some(t=>t.id===b.teamId&&canSeeTeam(t))?b.teamId:'__none';
+const odN=b=>b.groups.reduce((n,g)=>n+g.items.filter(late).length,0);
+const bdBtn=b=>{const od=odN(b);return `<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}" data-bid="${b.id}" data-k="${tkey(b)}" draggable="true" title="Drag to reorder (or Alt+Up/Down)${od?' - '+od+' overdue':''}">${esc(b.name)}<span class="bi">${od?`<i class="od" title="${od} overdue">${od}</i>`:''}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></span></button>`};
+const thead=(id,name,bs)=>{const c=!!tfold[id],od=bs.reduce((n,b)=>n+odN(b),0),dr=isAdmin()&&id!=='__none';return `<button class="th2 ${c?'min':''}" data-a="tfold" data-id="${id}"${dr?` data-tid="${id}" draggable="true"`:''} aria-expanded="${!c}" title="${c?'Expand':'Minimize'} ${esc(name)}${dr?' (drag to reorder)':''}${od?' - '+od+' overdue':''}"><span class="chev">▼</span>${esc(name)}${c?`<span class="bi">${od?`<i class="od" title="${od} overdue">${od}</i>`:''}<i>${bs.length}</i></span>`:''}</button>`};
 function boardList(){const L=live(),T=teams().filter(canSeeTeam);if(!T.length)return L.map(bdBtn).join('');const ids=new Set(T.map(t=>t.id));let h='';
- T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=thead(t.id,t.name,bs.length)+(tfold[t.id]?'':(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>'))});
- const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+=thead('__none','No team',rest.length)+(tfold['__none']?'':rest.map(bdBtn).join(''));return h}
+ T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=thead(t.id,t.name,bs)+(tfold[t.id]?'':(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>'))});
+ const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+=thead('__none','No team',rest)+(tfold['__none']?'':rest.map(bdBtn).join(''));return h}
+
+/* ---- reorder boards and teams (drag in sidebar, or Alt+Up/Down on a focused board) ---- */
+function moveBoard(id,key,refId,after){const L=live(),src=L.find(b=>b.id===id);if(!src)return;const sk=tkey(src);
+ if(sk!==key&&!isAdmin()){toast('Only admins can move boards between teams');return}
+ const list=L.filter(b=>tkey(b)===key&&b.id!==id);let idx=refId?list.findIndex(b=>b.id===refId):list.length;if(idx<0)idx=list.length;else if(refId&&after)idx++;
+ list.splice(idx,0,src);const base=now();bulk=true;
+ list.forEach((b,n)=>{const d={order:base+n};if(b.id===id&&sk!==key)d.teamId=key==='__none'?'':key;put('boards',b.id,d)});
+ bulk=false;renderAll()}
+function moveTeam(id,refId,after){if(!isAdmin())return;const l=teams().slice(),from=l.findIndex(t=>t.id===id);if(from<0||id===refId)return;const [t]=l.splice(from,1);let idx=refId?l.findIndex(x=>x.id===refId):l.length;if(idx<0)idx=l.length;else if(refId&&after)idx++;
+ l.splice(idx,0,t);put('settings','teams',{list:l},true)}
+let bdDrag=null,tmDrag=null,srcKey='';
+const clrDp=()=>document.querySelectorAll('#side .dtop,#side .dbot,#side .dinto,#side .dragging').forEach(x=>x.classList.remove('dtop','dbot','dinto','dragging'));
+const lowerHalf=(e,el)=>{const r=el.getBoundingClientRect();return e.clientY>r.top+r.height/2};
+document.addEventListener('dragstart',e=>{const el=e.target.closest&&e.target.closest('#side [data-bid],#side [data-tid]');if(!el)return;
+ if(el.dataset.bid){bdDrag=el.dataset.bid;tmDrag=null;srcKey=el.dataset.k}else{tmDrag=el.dataset.tid;bdDrag=null}
+ e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',bdDrag||tmDrag)}catch(x){}setTimeout(()=>el.classList.add('dragging'),0)});
+document.addEventListener('dragover',e=>{if(!bdDrag&&!tmDrag)return;if(!e.target.closest||!e.target.closest('#side'))return;
+ const bd=e.target.closest('.bd[data-bid]'),th=e.target.closest('.th2');clrDp();
+ if(bdDrag){if(bd&&bd.dataset.bid!==bdDrag){if(!isAdmin()&&bd.dataset.k!==srcKey)return;e.preventDefault();bd.classList.add(lowerHalf(e,bd)?'dbot':'dtop')}
+  else if(th){if(!isAdmin()&&th.dataset.id!==srcKey)return;e.preventDefault();th.classList.add('dinto')}}
+ else if(tmDrag&&th&&th.dataset.tid&&th.dataset.tid!==tmDrag){e.preventDefault();th.classList.add(lowerHalf(e,th)?'dbot':'dtop')}});
+document.addEventListener('drop',e=>{if(!bdDrag&&!tmDrag)return;if(!e.target.closest||!e.target.closest('#side')){bdDrag=tmDrag=null;clrDp();return}
+ e.preventDefault();const bd=e.target.closest('.bd[data-bid]'),th=e.target.closest('.th2'),b=bdDrag,t=tmDrag;bdDrag=tmDrag=null;clrDp();
+ if(b){if(bd&&bd.dataset.bid!==b)moveBoard(b,bd.dataset.k,bd.dataset.bid,lowerHalf(e,bd));else if(!bd&&th)moveBoard(b,th.dataset.id,null,false)}
+ else if(t&&th&&th.dataset.tid&&th.dataset.tid!==t)moveTeam(t,th.dataset.tid,lowerHalf(e,th))});
+document.addEventListener('dragend',()=>{bdDrag=tmDrag=null;clrDp()});
+document.addEventListener('keydown',e=>{if(!e.altKey||(e.key!=='ArrowUp'&&e.key!=='ArrowDown'))return;const bd=e.target.closest&&e.target.closest('#side .bd[data-bid]');if(!bd)return;e.preventDefault();
+ const id=bd.dataset.bid,k=bd.dataset.k,L=live().filter(b=>tkey(b)===k),i=L.findIndex(b=>b.id===id),j=e.key==='ArrowUp'?i-1:i+1;if(i<0||j<0||j>=L.length)return;
+ moveBoard(id,k,L[j].id,e.key==='ArrowDown');const f=document.querySelector(`#side [data-bid="${id}"]`);if(f)f.focus()});
 const tsel=b=>teams().length&&isAdmin()?`<select class="dsel" data-bt="1" aria-label="Team of this board"><option value="">No team</option>${teams().map(t=>`<option value="${t.id}" ${b.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:'';
 const dteamSel=()=>teams().filter(canSeeTeam).length?`<select class="dsel" data-dt="1" aria-label="Filter dashboard by team"><option value="">Team: all</option>${teams().filter(canSeeTeam).map(t=>`<option value="${t.id}" ${st.dteam===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__none" ${st.dteam==='__none'?'selected':''}>No team</option></select>`:'';
 document.addEventListener('change',e=>{const d=e.target.dataset;if(!d)return;if(d.bt!==undefined&&B()){put('boards',B().id,{teamId:e.target.value})}else if(d.dt!==undefined){st.dteam=e.target.value;renderAll()}});
