@@ -133,7 +133,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .ti{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;min-width:0}
 .tm{width:100%;height:100%;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer;border-radius:0}.tm:hover{background:var(--hover)}
 .tm.ov{background:#d6455d;color:#fff;font-weight:600}.tm.warn{background:#e0a100;color:#fff;font-weight:600}.tm.ok{color:#1f9d6b;font-weight:600}
-.th2{margin:14px 10px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.6}.th3{margin:0 10px 4px;font-size:12px;opacity:.4}
+.th2{margin:14px 0 4px;padding:4px 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.6;display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;color:inherit;font-family:inherit;text-align:left;cursor:pointer;border-radius:6px}.th2:hover{opacity:1;background:rgba(255,255,255,.05)}.th2 .chev{display:inline-block;width:10px;font-size:9px;transition:transform .15s}.th2.min .chev{transform:rotate(-90deg)}.th2 i{font-style:normal;margin-left:auto;font-size:11px;opacity:.8}.th3{margin:0 10px 4px;font-size:12px;opacity:.4}
 @media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
 </style>
 </head>
@@ -163,6 +163,8 @@ const now=()=>Date.now();
 const D={boards:{},groups:{},items:{},updates:{},settings:{}};
 let bulk=false,q='',setReady=false;
 let st={active:null,view:'table',dash:false,gz:30},db=null,fold={},pending=false;
+let tfold={};try{tfold=JSON.parse(localStorage.getItem('boards-teamfold'))||{}}catch(e){}
+const tfSave=()=>{try{localStorage.setItem('boards-teamfold',JSON.stringify(tfold))}catch(e){}};
 try{const p=JSON.parse(localStorage.getItem('boards-ui'));if(p){st.active=p.active;st.view=p.view||'table';st.dash=!!p.dash;st.gz=p.gz||30;fold=p.fold||{}}}catch(e){}
 const save=()=>{try{localStorage.setItem('boards-ui',JSON.stringify({active:st.active,view:st.view,dash:st.dash,gz:st.gz,fold}))}catch(e){}};
 const srt=a=>a.sort((x,y)=>(x.order||0)-(y.order||0));
@@ -406,9 +408,10 @@ const canSeeTeam=t=>isAdmin()||!(t.emails&&t.emails.length)||t.emails.includes(m
 const canSee=b=>{if(isAdmin())return true;const t=teams().find(x=>x.id===b.teamId);return !t||canSeeTeam(t)};
 const dlive=()=>live().filter(b=>!st.dteam||(st.dteam==='__none'?!teams().some(t=>t.id===b.teamId):b.teamId===st.dteam));
 const bdBtn=b=>`<button class="bd ${!st.dash&&b.id===st.active?'on':''}" data-a="pick" data-id="${b.id}">${esc(b.name)}<i>${b.groups.reduce((n,g)=>n+g.items.length,0)}</i></button>`;
+const thead=(id,name,n)=>`<button class="th2 ${tfold[id]?'min':''}" data-a="tfold" data-id="${id}" aria-expanded="${!tfold[id]}" title="${tfold[id]?'Expand':'Minimize'} ${esc(name)}"><span class="chev">▼</span>${esc(name)}${tfold[id]?`<i>${n}</i>`:''}</button>`;
 function boardList(){const L=live(),T=teams().filter(canSeeTeam);if(!T.length)return L.map(bdBtn).join('');const ids=new Set(T.map(t=>t.id));let h='';
- T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=`<div class="th2">${esc(t.name)}</div>`+(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>')});
- const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+='<div class="th2">No team</div>'+rest.map(bdBtn).join('');return h}
+ T.forEach(t=>{const bs=L.filter(b=>b.teamId===t.id);h+=thead(t.id,t.name,bs.length)+(tfold[t.id]?'':(bs.map(bdBtn).join('')||'<div class="th3">No boards yet</div>'))});
+ const rest=L.filter(b=>!ids.has(b.teamId));if(rest.length)h+=thead('__none','No team',rest.length)+(tfold['__none']?'':rest.map(bdBtn).join(''));return h}
 const tsel=b=>teams().length&&isAdmin()?`<select class="dsel" data-bt="1" aria-label="Team of this board"><option value="">No team</option>${teams().map(t=>`<option value="${t.id}" ${b.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:'';
 const dteamSel=()=>teams().filter(canSeeTeam).length?`<select class="dsel" data-dt="1" aria-label="Filter dashboard by team"><option value="">Team: all</option>${teams().filter(canSeeTeam).map(t=>`<option value="${t.id}" ${st.dteam===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__none" ${st.dteam==='__none'?'selected':''}>No team</option></select>`:'';
 document.addEventListener('change',e=>{const d=e.target.dataset;if(!d)return;if(d.bt!==undefined&&B()){put('boards',B().id,{teamId:e.target.value})}else if(d.dt!==undefined){st.dteam=e.target.value;renderAll()}});
@@ -523,6 +526,7 @@ document.addEventListener('click',async e=>{
  const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a,b=B();
  const gid=()=>t.closest('[data-g]').dataset.g;
  if(a==='pick'){st.active=t.dataset.id;st.dash=false;q=''}
+ else if(a==='tfold'){const k=t.dataset.id;if(tfold[k])delete tfold[k];else tfold[k]=1;tfSave()}
  else if(a==='dash')st.dash=true;
  else if(a==='statuses'){openStatuses();return}
  else if(a==='team'){openTeam();return}
