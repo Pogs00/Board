@@ -289,6 +289,8 @@ const vtxt=(f,v)=>f==='status'?(S[v]!==undefined?S[v]:v):f==='priority'?P[v]:(v|
 const nv=v=>v===undefined||v===null?'':v;
 function syncParent(pid){const par=D.items[pid];if(!par)return;const sp=Object.values(D.items).filter(c=>c.parentId===pid).map(span).filter(Boolean);if(!sp.length)return;
  const a=dstr(Math.min(...sp.map(x=>x[0]))),z=dstr(Math.max(...sp.map(x=>x[1])));if(par.start!==a||par.due!==z)trk(pid,{start:a,due:z})}
+let _swept=false;const _ld2={};
+function sweepParents(){syncStatuses();[...new Set(Object.values(D.items).map(i=>i.parentId).filter(Boolean))].forEach(id=>{syncParent(id);syncDone(id)})}
 function syncDone(pid){const par=D.items[pid];if(!par)return;const k=Object.values(D.items).filter(c=>c.parentId===pid);if(!k.length)return;
  const all=k.every(c=>kd(c)===3),di=SL.findIndex(x=>x.k===3);if(di<0)return;
  if(all&&kd(par)!==3)trk(pid,{status:di,autoDone:true});
@@ -407,7 +409,7 @@ function deny(){const u=auth0&&auth0.currentUser;gate(`<p>Signed in as <b>${esc(
 const signoutHtml=()=>auth0&&auth0.currentUser?`<div style="font-size:11px;opacity:.6;margin:14px 10px 2px;overflow:hidden;text-overflow:ellipsis">${esc(auth0.currentUser.email||'')}</div><button class="bd ghost" data-a="signout" style="margin-top:2px">Sign out</button>`:'';
 function start(u){try{if(!localStorage.getItem('boards-name')&&u.displayName)localStorage.setItem('boards-name',u.displayName)}catch(e){}
  db=firebase.firestore();
- ['boards','groups','items','updates','settings'].forEach(col=>db.collection(col).onSnapshot(sn=>{D[col]={};sn.docs.forEach(d=>D[col][d.id]={...d.data(),id:d.id});if(col==='settings')setReady=true;later()},er=>er.code==='permission-denied'?deny():toast('Sync problem: '+(er.message||er.code))));
+ ['boards','groups','items','updates','settings'].forEach(col=>db.collection(col).onSnapshot(sn=>{D[col]={};sn.docs.forEach(d=>D[col][d.id]={...d.data(),id:d.id});if(col==='settings')setReady=true;_ld2[col]=1;later();if(_ld2.items&&_ld2.settings&&!_swept){_swept=true;sweepParents()}},er=>er.code==='permission-denied'?deny():toast('Sync problem: '+(er.message||er.code))));
  renderAll();ensureName()}
 const hrs=id=>Object.values(D.updates).filter(u=>u.itemId===id&&u.kind==='time').reduce((a,u)=>a+(+u.hours||0),0);
 const fh=n=>(Math.round((+n||0)*100)/100)+'h';
