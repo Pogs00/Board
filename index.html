@@ -111,7 +111,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .dh div{text-align:center;padding:3px 0;flex:none;white-space:nowrap}.dh .we{background:var(--hover)}.dh .td{color:#d6455d;font-weight:700}
 .bar2{position:absolute;top:6px;height:24px;border-radius:6px;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;cursor:grab;touch-action:none;user-select:none;z-index:2;overflow:hidden;padding:0 8px}
 .bar2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
-.bar2.dn{opacity:.55}.bar2.ov{box-shadow:0 0 0 2px #d6455d}
+.bar2.gs{height:10px;top:13px;opacity:.7;cursor:default;pointer-events:none;border-radius:5px}.bar2.dn{opacity:.55}.bar2.ov{box-shadow:0 0 0 2px #d6455d}
 .bar2 i{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize}.rl{left:0}.rr{right:0}
 .gk.un{cursor:copy}.gk.un:hover::after{content:"Click to set a date";position:absolute;left:8px;top:9px;color:var(--mute);font-size:12px}
 .tline{position:absolute;top:0;bottom:0;width:2px;background:#d6455d;opacity:.55;pointer-events:none;z-index:1}
@@ -241,7 +241,7 @@ function renderGantt(){
  gLo=lo;gDays=hi-lo+1;const tw=(hi-lo+1)*dw;let mh='',dh='';
  for(let d=lo;d<=hi;){const dt=new Date(d*864e5),y=dt.getUTCFullYear(),m=dt.getUTCMonth(),n=Math.min(new Date(Date.UTC(y,m+1,0)).getUTCDate()-dt.getUTCDate()+1,hi-d+1);mh+=`<div style="width:${n*dw}px">${dt.toLocaleString(undefined,{month:'short',year:'numeric',timeZone:'UTC'})}</div>`;d+=n}
  for(let d=lo;d<=hi;d++){const dt=new Date(d*864e5),wd=dt.getUTCDay();dh+=`<div class="${wd===0||wd===6?'we':''} ${d===tn?'td':''}" style="width:${dw}px">${dw>=24||(dw>=12&&wd===1)||(dw>=4&&dw<12&&[1,8,15,22].includes(dt.getUTCDate()))?dt.getUTCDate():''}</div>`}
- const rows=b.groups.map(g=>{let h=`<div class="gr gg"><div class="gl" style="color:${g.color};font-weight:700">${esc(gname(g))} <span class="cnt">${g.items.length}</span></div><div class="gk" style="width:${tw}px"></div></div>`;
+ const rows=b.groups.map(g=>{let h=`<div class="gr gg"><div class="gl" style="color:${g.color};font-weight:700">${esc(gname(g))} <span class="cnt">${g.items.length}</span></div><div class="gk" style="width:${tw}px">${(()=>{const r=gRange(g);return r?`<div class="bar2 gs" style="left:${(r[0]-lo)*dw}px;width:${Math.max(4,(r[1]-r[0]+1)*dw-2)}px;background:${g.color}" title="${esc(gname(g))}: auto-set from its items"></div>`:''})()}</div></div>`;
   if(g.collapsed)return h;
   g.items.filter(match).forEach(it=>{const p=span(it);
    const bar=p?`<div class="bar2${late(it)?' ov':''}${kd(it)===3?' dn':''}" data-id="${it.id}" style="left:${(p[0]-lo)*dw}px;width:${Math.max(4,(p[1]-p[0]+1)*dw-2)}px;background:${SC[it.status]||'#888'}" title="${esc(it.name)}: ${fmt(dstr(p[0]))} to ${fmt(dstr(p[1]))}"><i class="rl"></i><span>${esc(it.name)}</span><i class="rr"></i></div>`:'';
@@ -250,11 +250,11 @@ function renderGantt(){
  return `<div class="gtool"><button class="btn" data-a="gzoom" data-d="out" aria-label="Zoom out">−</button><select id="gz" class="dsel" aria-label="Zoom level">${[[30,'Day'],[14,'Week'],[5,'Month'],[2,'Quarter'],...([30,14,5,2].includes(dw)?[]:[[dw,'Custom']])].map(([v,t])=>`<option value="${v}" ${v===dw?'selected':''}>${t}</option>`).join('')}</select><button class="btn" data-a="gzoom" data-d="in" aria-label="Zoom in">+</button><button class="btn" data-a="gfit">Fit all</button><button class="btn" data-a="gtoday">Today</button><span>Drag a bar to move it, drag its edges to resize, click it for notes.</span></div>
  <div class="gt"><div class="gt-in" style="width:${260+tw}px"><div class="gr gh2"><div class="gl">Item</div><div class="gk" style="width:${tw}px;background-size:${dw}px 100%"><div class="mh">${mh}</div><div class="dh">${dh}</div></div></div>${rows}<div class="tline" style="left:${260+(tn-lo)*dw+dw/2}px"></div></div></div>`}
 document.addEventListener('pointerdown',e=>{const bar=e.target.closest&&e.target.closest('.bar2');if(!bar||e.button>0)return;const it=D.items[bar.dataset.id],p=it&&span(it);if(!p)return;
- gd={id:it.id,mode:e.target.classList.contains('rl')?'l':e.target.classList.contains('rr')?'r':'m',x:e.clientX,s:p[0],e:p[1],lo:gLo,dw:st.gz||30,bar,moved:false};try{bar.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
-document.addEventListener('pointermove',e=>{if(!gd)return;if(Math.abs(e.clientX-gd.x)>3)gd.moved=true;if(!gd.moved)return;const dd=Math.round((e.clientX-gd.x)/gd.dw);let s=gd.s,en=gd.e;
+ gd={lock:kidsDated(it.id),id:it.id,mode:e.target.classList.contains('rl')?'l':e.target.classList.contains('rr')?'r':'m',x:e.clientX,s:p[0],e:p[1],lo:gLo,dw:st.gz||30,bar,moved:false};try{bar.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
+document.addEventListener('pointermove',e=>{if(!gd||gd.lock)return;if(Math.abs(e.clientX-gd.x)>3)gd.moved=true;if(!gd.moved)return;const dd=Math.round((e.clientX-gd.x)/gd.dw);let s=gd.s,en=gd.e;
  if(gd.mode==='m'){s+=dd;en+=dd}else if(gd.mode==='l')s=Math.min(gd.s+dd,gd.e);else en=Math.max(gd.e+dd,gd.s);
  gd.ns=s;gd.ne=en;gd.bar.style.left=(s-gd.lo)*gd.dw+'px';gd.bar.style.width=Math.max(4,(en-s+1)*gd.dw-2)+'px'});
-document.addEventListener('pointerup',()=>{if(!gd)return;const g=gd;gd=null;if(!g.moved){openUpd(g.id);return}if(g.ns!==g.s||g.ne!==g.e)trk(g.id,{start:dstr(g.ns),due:dstr(g.ne)});else renderAll()});
+document.addEventListener('pointerup',()=>{if(!gd)return;const g=gd;gd=null;if(g.lock||!g.moved){openUpd(g.id);return}if(g.ns!==g.s||g.ne!==g.e)trk(g.id,{start:dstr(g.ns),due:dstr(g.ne)});else renderAll()});
 document.addEventListener('click',e=>{const k=e.target.closest&&e.target.closest('.gk.un');if(!k||!k.closest('[data-id]'))return;const d=gLo+Math.floor((e.clientX-k.getBoundingClientRect().left)/(st.gz||30));trk(k.closest('[data-id]').dataset.id,{start:dstr(d),due:dstr(d)})});
 document.addEventListener('change',e=>{if(e.target.id==='gz'){window._gz=1;st.gz=+e.target.value;renderAll()}});
 function openStatuses(){const KN=['Not started','Working on it','Stuck','Done'],PAL=['#2f5bea','#7c6bd6','#e07a2f','#c2275a','#1f9d6b'];let rows=SL.map((x,i)=>({...x,o:i}));
@@ -287,8 +287,14 @@ function logAct(id,text){const it=D.items[id];if(!it)return;const ts=now();put('
 const FL={est:'Estimated hours',name:'Name',owner:'Owner',status:'Status',priority:'Priority',due:'Due date',start:'Start date'};
 const vtxt=(f,v)=>f==='status'?(S[v]!==undefined?S[v]:v):f==='priority'?P[v]:(v||'none');
 const nv=v=>v===undefined||v===null?'':v;
-function trk(id,patch){const it=D.items[id];if(!it)return;Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch)}
-function delItemUndo(id){const it=D.items[id];if(!it)return;const its=[it,...Object.values(D.items).filter(c=>c.parentId===id)],ids=its.map(x=>x.id),ups=Object.values(D.updates).filter(u=>ids.includes(u.itemId));delItem(id);toast(its.length>1?'Item and '+(its.length-1)+' subtask'+(its.length>2?'s':'')+' deleted':'Item deleted',()=>{bulk=true;its.forEach(x=>put('items',x.id,x,true));ups.forEach(u=>put('updates',u.id,u,true));bulk=false;renderAll()})}
+function syncParent(pid){const par=D.items[pid];if(!par)return;const sp=Object.values(D.items).filter(c=>c.parentId===pid).map(span).filter(Boolean);if(!sp.length)return;
+ const a=dstr(Math.min(...sp.map(x=>x[0]))),z=dstr(Math.max(...sp.map(x=>x[1])));if(par.start!==a||par.due!==z)trk(pid,{start:a,due:z})}
+const kidsDated=id=>Object.values(D.items).some(c=>c.parentId===id&&span(c));
+function gRange(g){const gids=new Set(),walk=x=>{if(gids.has(x))return;gids.add(x);Object.values(D.groups).filter(y=>y.parentId===x).forEach(y=>walk(y.id))};walk(g.id);
+ const sp=Object.values(D.items).filter(i=>gids.has(i.groupId)).map(span).filter(Boolean);return sp.length?[Math.min(...sp.map(x=>x[0])),Math.max(...sp.map(x=>x[1]))]:null}
+const gRangeTxt=g=>{const r=gRange(g);return r?`<span class="cnt" title="Auto-set from the items and sub groups inside">📅 ${fmt(dstr(r[0]))}${r[1]!==r[0]?' – '+fmt(dstr(r[1])):''}</span>`:''};
+function trk(id,patch){const it=D.items[id];if(!it)return;Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch);const pr=D.items[id]&&D.items[id].parentId;if(pr&&('start' in patch||'due' in patch))syncParent(pr)}
+function delItemUndo(id){const it=D.items[id];if(!it)return;const its=[it,...Object.values(D.items).filter(c=>c.parentId===id)],ids=its.map(x=>x.id),ups=Object.values(D.updates).filter(u=>ids.includes(u.itemId));delItem(id);if(it.parentId)syncParent(it.parentId);toast(its.length>1?'Item and '+(its.length-1)+' subtask'+(its.length>2?'s':'')+' deleted':'Item deleted',()=>{bulk=true;its.forEach(x=>put('items',x.id,x,true));ups.forEach(u=>put('updates',u.id,u,true));bulk=false;if(it.parentId)syncParent(it.parentId);renderAll()})}
 const archHtml=()=>{const a=boards().filter(b=>b.archived&&canSee(b));return a.length?'<div style="margin:16px 10px 4px;font-size:12px;opacity:.6">ARCHIVED</div>'+a.map(b=>`<div class="bd" style="cursor:default"><span style="overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><span><button class="x" style="color:inherit" data-a="unarch" data-id="${b.id}" title="Restore" aria-label="Restore board">↩</button><button class="x" style="color:inherit" data-a="purge" data-id="${b.id}" title="Delete forever" aria-label="Delete forever">×</button></span></div>`).join(''):''};
 function ownerCell(it){const t=team();if(!t.length)return `<input data-f="owner" value="${esc(it.owner)}" placeholder="Assign" aria-label="Owner">`;
  const ex=it.owner&&!t.includes(it.owner)?[it.owner]:[];return `<select class="osel" data-f="owner" aria-label="Owner"><option value="">Unassigned</option>${[...t,...ex].map(n=>`<option value="${esc(n)}" ${n===it.owner?'selected':''}>${esc(n)}</option>`).join('')}</select>`}
@@ -511,8 +517,8 @@ function row(it,k,sub){k=k||[];const cl=!!fold['i'+it.id],dn_=k.filter(c=>kd(c)=
  ${nm}
  <div class="ow"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span>${ownerCell(it)}</div>
  <div>${pill(S,SC,it.status,'status')}</div><div>${pill(P,PC,it.priority,'priority')}</div>
- <div><input type="date" data-f="start" value="${it.start||''}" aria-label="Start date"></div>
- <div><input type="date" data-f="due" value="${it.due||''}" class="${late(it)?'late':soon(it)?'soon':''}" aria-label="Due date"></div>
+ <div><input type="date" data-f="start" value="${it.start||''}" aria-label="Start date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
+ <div><input type="date" data-f="due" value="${it.due||''}" class="${late(it)?'late':soon(it)?'soon':''}" aria-label="Due date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
  <div><input type="number" min="0" step="0.5" data-f="est" value="${it.est===undefined||it.est===null?'':it.est}" aria-label="Estimated hours"></div><div><button class="tm ${hcls(it)}" data-a="upd" data-id="${it.id}" title="Logged hours. Click to log time.">${fh(hrs(it.id))}</button></div>
  <div class="upd" title="${esc(fts(it.updatedAt))}">${rel(it.updatedAt)}</div><div><button class="x un" data-a="upd" data-id="${it.id}" aria-label="Updates">💬 ${nUpd(it.id)}</button></div>
  <div><button class="x" data-a="delitem" data-id="${it.id}" aria-label="Delete ${sub?'subtask':'item'}">×</button></div></div>`}
@@ -529,7 +535,7 @@ function grpHtml(g,gs,seen){
  const sh=subs.map(x=>grpHtml(x,gs,seen)).join('');
  return `<section class="grp${gdepth(g)?' sub':''}" style="--gc:${g.color}" data-g="${g.id}">
   <div class="gh"><button class="tg" data-a="fold" aria-label="Collapse group">${g.collapsed?'▸':'▾'}</button>
-  <input class="gn" data-gf="name" value="${esc(g.name)}" aria-label="Group name"><span class="cnt">${n} items${subs.length?` · ${subs.length} sub group${subs.length>1?'s':''}`:''}</span>
+  <input class="gn" data-gf="name" value="${esc(g.name)}" aria-label="Group name"><span class="cnt">${n} items${subs.length?` · ${subs.length} sub group${subs.length>1?'s':''}`:''}</span>${gRangeTxt(g)}
   ${gdepth(g)<3?'<button class="btn sm" data-a="addsubgroup" title="Add a sub group inside this group">+ Sub group</button>':''}
   <button class="x" data-a="delgroup" aria-label="Delete group">×</button></div>
   ${g.collapsed?`<div class="bar" style="border-left:5px solid ${g.color}">${bar}</div>`:`<div class="tbl">
@@ -655,7 +661,7 @@ function moveTo(id,gid,refId,after){const it=D.items[id],g=D.groups[gid];if(!it|
  else{const k=sib.findIndex(i=>i.id===refId);if(k<0)return;if(after){p=sib[k];n=sib[k+1]}else{p=sib[k-1];n=sib[k]}}
  const moved=it.groupId!==gid,kids=moved?Object.values(D.items).filter(c=>c.parentId===id):[];
  const patch={groupId:gid,boardId:g.boardId,order:orderBetween(p,n)};if(moved&&it.parentId)patch.parentId='';
- bulk=true;kids.forEach(c=>put('items',c.id,{groupId:gid,boardId:g.boardId},true));bulk=false;put('items',id,patch,true)}
+ bulk=true;kids.forEach(c=>put('items',c.id,{groupId:gid,boardId:g.boardId},true));bulk=false;put('items',id,patch,true);if(moved&&it.parentId)syncParent(it.parentId)}
 function moveItem(id,dir){const it=D.items[id];if(!it)return;const sib=gItems(it.groupId),k=sib.findIndex(i=>i.id===id);
  if(dir<0&&k>0)moveTo(id,it.groupId,sib[k-1].id,false);else if(dir>0&&k<sib.length-1)moveTo(id,it.groupId,sib[k+1].id,true)}
 const clearDrop=()=>document.querySelectorAll('.dtop,.dbot,.dend').forEach(x=>x.classList.remove('dtop','dbot','dend'));
