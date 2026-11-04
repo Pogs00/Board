@@ -203,7 +203,7 @@ function delGroup(id){Object.values(D.groups).filter(x=>x.parentId===id).forEach
 const gname=g=>{const p=D.groups[g.parentId];return p?gname(p)+' › '+g.name:g.name};
 const gdepth=g=>{let d=0,p=D.groups[g.parentId];while(p&&d<9){d++;p=D.groups[p.parentId]}return d};
 const newGroup=(bid,name,n)=>put('groups',uid(),{boardId:bid,name,color:GC[n%GC.length],order:now()});
-const newItem=(g,name,status,pri,parentId)=>{const id=uid();put('items',id,{boardId:g.boardId,groupId:g.id,parentId:parentId||'',name,owner:'',status,priority:pri,due:'',order:now()});logAct(id,'Item created')};
+const newItem=(g,name,status,pri,parentId)=>{const id=uid();put('items',id,{boardId:g.boardId,groupId:g.id,parentId:parentId||'',name,owner:'',status,priority:pri,due:'',order:now()});logAct(id,'Item created');if(parentId)syncDone(parentId)};
 const fs={owner:'',status:'',pri:'',flag:'',sort:''};
 const soon=it=>it.due&&kd(it)!==3&&it.due>=today&&it.due<=dstr(dn(today)+3);
 const sorters={due:(a,b)=>(a.due||'9')<(b.due||'9')?-1:1,pri:(a,b)=>b.priority-a.priority,status:(a,b)=>a.status-b.status,name:(a,b)=>a.name.localeCompare(b.name),upd:(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)};
@@ -289,12 +289,18 @@ const vtxt=(f,v)=>f==='status'?(S[v]!==undefined?S[v]:v):f==='priority'?P[v]:(v|
 const nv=v=>v===undefined||v===null?'':v;
 function syncParent(pid){const par=D.items[pid];if(!par)return;const sp=Object.values(D.items).filter(c=>c.parentId===pid).map(span).filter(Boolean);if(!sp.length)return;
  const a=dstr(Math.min(...sp.map(x=>x[0]))),z=dstr(Math.max(...sp.map(x=>x[1])));if(par.start!==a||par.due!==z)trk(pid,{start:a,due:z})}
+function syncDone(pid){const par=D.items[pid];if(!par)return;const k=Object.values(D.items).filter(c=>c.parentId===pid);if(!k.length)return;
+ const all=k.every(c=>kd(c)===3),di=SL.findIndex(x=>x.k===3);if(di<0)return;
+ if(all&&kd(par)!==3)trk(pid,{status:di,autoDone:true});
+ else if(!all&&kd(par)===3&&par.autoDone){let ri=SL.findIndex(x=>x.k===1);if(ri<0)ri=Math.max(0,SL.findIndex(x=>x.k!==3));trk(pid,{status:ri,autoDone:false})}}
+function gDeep(g){const gids=new Set(),walk=x=>{if(gids.has(x))return;gids.add(x);Object.values(D.groups).filter(y=>y.parentId===x).forEach(y=>walk(y.id))};walk(g.id);return Object.values(D.items).filter(i=>gids.has(i.groupId))}
+const gDoneTxt=g=>{const a=gDeep(g);if(!a.length)return '';const d=a.filter(i=>kd(i)===3).length;return d===a.length?`<span class="tag" style="background:#1f9d6b" title="Every item and sub group inside is done">✓ Complete</span>`:`<span class="cnt" title="Done items, including subtasks and sub groups">${d}/${a.length} done</span>`};
 const kidsDated=id=>Object.values(D.items).some(c=>c.parentId===id&&span(c));
 function gRange(g){const gids=new Set(),walk=x=>{if(gids.has(x))return;gids.add(x);Object.values(D.groups).filter(y=>y.parentId===x).forEach(y=>walk(y.id))};walk(g.id);
  const sp=Object.values(D.items).filter(i=>gids.has(i.groupId)).map(span).filter(Boolean);return sp.length?[Math.min(...sp.map(x=>x[0])),Math.max(...sp.map(x=>x[1]))]:null}
 const gRangeTxt=g=>{const r=gRange(g);return r?`<span class="cnt" title="Auto-set from the items and sub groups inside">📅 ${fmt(dstr(r[0]))}${r[1]!==r[0]?' – '+fmt(dstr(r[1])):''}</span>`:''};
-function trk(id,patch){const it=D.items[id];if(!it)return;Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch);const pr=D.items[id]&&D.items[id].parentId;if(pr&&('start' in patch||'due' in patch))syncParent(pr)}
-function delItemUndo(id){const it=D.items[id];if(!it)return;const its=[it,...Object.values(D.items).filter(c=>c.parentId===id)],ids=its.map(x=>x.id),ups=Object.values(D.updates).filter(u=>ids.includes(u.itemId));delItem(id);if(it.parentId)syncParent(it.parentId);toast(its.length>1?'Item and '+(its.length-1)+' subtask'+(its.length>2?'s':'')+' deleted':'Item deleted',()=>{bulk=true;its.forEach(x=>put('items',x.id,x,true));ups.forEach(u=>put('updates',u.id,u,true));bulk=false;if(it.parentId)syncParent(it.parentId);renderAll()})}
+function trk(id,patch){const it=D.items[id];if(!it)return;if(patch.status!==undefined&&!('autoDone' in patch)&&it.autoDone)patch={...patch,autoDone:false};Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch);const pr=D.items[id]&&D.items[id].parentId;if(pr){if('start' in patch||'due' in patch)syncParent(pr);if('status' in patch)syncDone(pr)}}
+function delItemUndo(id){const it=D.items[id];if(!it)return;const its=[it,...Object.values(D.items).filter(c=>c.parentId===id)],ids=its.map(x=>x.id),ups=Object.values(D.updates).filter(u=>ids.includes(u.itemId));delItem(id);if(it.parentId){syncParent(it.parentId);syncDone(it.parentId)}toast(its.length>1?'Item and '+(its.length-1)+' subtask'+(its.length>2?'s':'')+' deleted':'Item deleted',()=>{bulk=true;its.forEach(x=>put('items',x.id,x,true));ups.forEach(u=>put('updates',u.id,u,true));bulk=false;if(it.parentId){syncParent(it.parentId);syncDone(it.parentId)}renderAll()})}
 const archHtml=()=>{const a=boards().filter(b=>b.archived&&canSee(b));return a.length?'<div style="margin:16px 10px 4px;font-size:12px;opacity:.6">ARCHIVED</div>'+a.map(b=>`<div class="bd" style="cursor:default"><span style="overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><span><button class="x" style="color:inherit" data-a="unarch" data-id="${b.id}" title="Restore" aria-label="Restore board">↩</button><button class="x" style="color:inherit" data-a="purge" data-id="${b.id}" title="Delete forever" aria-label="Delete forever">×</button></span></div>`).join(''):''};
 function ownerCell(it){const t=team();if(!t.length)return `<input data-f="owner" value="${esc(it.owner)}" placeholder="Assign" aria-label="Owner">`;
  const ex=it.owner&&!t.includes(it.owner)?[it.owner]:[];return `<select class="osel" data-f="owner" aria-label="Owner"><option value="">Unassigned</option>${[...t,...ex].map(n=>`<option value="${esc(n)}" ${n===it.owner?'selected':''}>${esc(n)}</option>`).join('')}</select>`}
@@ -535,7 +541,7 @@ function grpHtml(g,gs,seen){
  const sh=subs.map(x=>grpHtml(x,gs,seen)).join('');
  return `<section class="grp${gdepth(g)?' sub':''}" style="--gc:${g.color}" data-g="${g.id}">
   <div class="gh"><button class="tg" data-a="fold" aria-label="Collapse group">${g.collapsed?'▸':'▾'}</button>
-  <input class="gn" data-gf="name" value="${esc(g.name)}" aria-label="Group name"><span class="cnt">${n} items${subs.length?` · ${subs.length} sub group${subs.length>1?'s':''}`:''}</span>${gRangeTxt(g)}
+  <input class="gn" data-gf="name" value="${esc(g.name)}" aria-label="Group name"><span class="cnt">${n} items${subs.length?` · ${subs.length} sub group${subs.length>1?'s':''}`:''}</span>${gRangeTxt(g)}${gDoneTxt(g)}
   ${gdepth(g)<3?'<button class="btn sm" data-a="addsubgroup" title="Add a sub group inside this group">+ Sub group</button>':''}
   <button class="x" data-a="delgroup" aria-label="Delete group">×</button></div>
   ${g.collapsed?`<div class="bar" style="border-left:5px solid ${g.color}">${bar}</div>`:`<div class="tbl">
@@ -661,7 +667,7 @@ function moveTo(id,gid,refId,after){const it=D.items[id],g=D.groups[gid];if(!it|
  else{const k=sib.findIndex(i=>i.id===refId);if(k<0)return;if(after){p=sib[k];n=sib[k+1]}else{p=sib[k-1];n=sib[k]}}
  const moved=it.groupId!==gid,kids=moved?Object.values(D.items).filter(c=>c.parentId===id):[];
  const patch={groupId:gid,boardId:g.boardId,order:orderBetween(p,n)};if(moved&&it.parentId)patch.parentId='';
- bulk=true;kids.forEach(c=>put('items',c.id,{groupId:gid,boardId:g.boardId},true));bulk=false;put('items',id,patch,true);if(moved&&it.parentId)syncParent(it.parentId)}
+ bulk=true;kids.forEach(c=>put('items',c.id,{groupId:gid,boardId:g.boardId},true));bulk=false;put('items',id,patch,true);if(moved&&it.parentId){syncParent(it.parentId);syncDone(it.parentId)}}
 function moveItem(id,dir){const it=D.items[id];if(!it)return;const sib=gItems(it.groupId),k=sib.findIndex(i=>i.id===id);
  if(dir<0&&k>0)moveTo(id,it.groupId,sib[k-1].id,false);else if(dir>0&&k<sib.length-1)moveTo(id,it.groupId,sib[k+1].id,true)}
 const clearDrop=()=>document.querySelectorAll('.dtop,.dbot,.dend').forEach(x=>x.classList.remove('dtop','dbot','dend'));
