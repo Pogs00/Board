@@ -149,6 +149,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .grp.sub{margin:0 0 18px 30px;min-width:0}
 .subs{margin-top:14px}
 @media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
+.lg{display:grid;min-width:820px;font-size:12.5px}.lg>div{border-bottom:1px solid var(--line);min-height:28px;text-align:center;display:flex;flex-direction:column;justify-content:center}.lg>.nm{text-align:left;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:28px}.lg .we{background:var(--hover)}.lg .td{box-shadow:inset 1px 0 var(--accent),inset -1px 0 var(--accent)}.lb{display:block;height:16px}
 .lv{flex:none;font-size:13px;cursor:help;padding:0 4px}
 </style>
 </head>
@@ -606,6 +607,21 @@ function renderKanban(){
 function renderMain(){const m=document.getElementById('main'),g0=m.querySelector('.gt'),sx=g0?g0.scrollLeft:null,sy=g0?g0.scrollTop:0;
  m.innerHTML=st.view==='table'?renderTable():st.view==='kanban'?renderKanban():st.view==='cal'?renderCal():renderGantt();
  const g1=m.querySelector('.gt');if(g1){if(sx!==null&&!window._gz){g1.scrollLeft=sx;g1.scrollTop=sy}else g1.scrollLeft=Math.max(0,(dn(today)-gLo)*(st.gz||30)-120);window._gz=0}}
+const LC={Vacation:'#3b82f6',Sick:'#e0912b',Emergency:'#d6455d',Other:'#8a93a3'};
+function renderLeaveDash(){const t0=dn(today),off=st.lw||0,N=28,mon=t0-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7)+off*7,days=[...Array(N)].map((_,i)=>mon+i),ws=dstr(mon),we=dstr(mon+N-1);
+ const L=leaves().slice().sort((a,b)=>a.start<b.start?-1:a.start>b.start?1:0),cur=L.filter(l=>l.end>=today),away=awayNow(),nxt=cur.filter(l=>l.start>today&&dn(l.start)<=t0+7);
+ const aff=new Set();cur.forEach(l=>leaveTasks(l).forEach(i=>aff.add(i.id)));
+ const ppl=[...new Set(L.filter(l=>l.start<=we&&l.end>=ws).map(l=>l.person))].sort((a,b)=>a.localeCompare(b));
+ const kp=[['On leave today',away.length],['Starting in 7 days',nxt.length],['Current and upcoming',cur.length],['Tasks affected',aff.size]];
+ const hd=days.map(d=>{const dt=new Date(d*864e5),n=dt.getUTCDate(),mo=n===1||d===mon;return `<div class="${[0,6].includes(dt.getUTCDay())?'we ':''}${d===t0?'td':''}" style="font-size:11px;line-height:1.2">${mo?'<b>'+dt.toLocaleDateString(undefined,{month:'short',timeZone:'UTC'})+'</b><br>':'<br>'}${n}</div>`}).join('');
+ const grid=ppl.map(p=>`<div class="nm" title="${esc(p)}">${esc(p)}</div>`+days.map(d=>{const dt=new Date(d*864e5),ds=dstr(d),l=L.find(x=>x.person===p&&x.start<=ds&&x.end>=ds);
+  return `<div class="${[0,6].includes(dt.getUTCDay())?'we ':''}${d===t0?'td':''}">${l?`<i class="lb" style="background:${LC[l.type]||LC.Other}" title="${esc(p)}: ${esc(l.type)}, ${esc(lfmt(l))}${l.note?' ('+esc(l.note)+')':''}"></i>`:''}</div>`}).join('')).join('');
+ const rows=cur.map(l=>{const t=leaveTasks(l),now=l.start<=today&&l.end>=today;return `<tr><td><b>${esc(l.person)}</b></td><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${LC[l.type]||LC.Other};margin-right:6px"></span>${esc(l.type)}</td><td>${esc(lfmt(l))}</td><td>${ldays(l)}</td><td>${now?'<span class="late">On leave now</span>':'Upcoming'}</td><td>${t.length?t.slice(0,3).map(i=>`<button class="lnk" data-a="upd" data-id="${i.id}" title="${esc(i.board)}">${esc(i.name)}</button>`).join(', ')+(t.length>3?` <span class="cnt">+${t.length-3} more</span>`:''):'<span class="cnt">None</span>'}</td></tr>`}).join('');
+ return `<div class="kp">${kp.map(k=>`<div class="k"><b class="${k[0]==='Tasks affected'&&k[1]?'late':''}">${k[1]}</b><span>${k[0]}</span></div>`).join('')}</div>
+ <div class="dg"><div class="pn w"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px"><h3 style="margin:0;flex:1">Leave calendar <span class="cnt" style="font-weight:400">${esc(fmt(ws))} – ${esc(fmt(we))}</span></h3><button class="btn" data-a="lweek" data-d="-4">‹ 4 weeks</button><button class="btn" data-a="lweek" data-d="0">Today</button><button class="btn" data-a="lweek" data-d="4">4 weeks ›</button>${isAdmin()?'<button class="btn pri" data-a="leaves">Add / manage leave</button>':'<button class="btn" data-a="leaves">Open leave list</button>'}</div>
+ <div class="tw">${ppl.length?`<div class="lg" style="grid-template-columns:130px repeat(${N},minmax(22px,1fr))"><div></div>${hd}${grid}</div>`:'<div class="cnt">No leave in this period.</div>'}</div>
+ <div class="cnt" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px">${LTYPES.map(t=>`<span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${LC[t]};margin-right:5px"></i>${t}</span>`).join('')}</div></div>
+ <div class="pn w"><h3>Current and upcoming leave</h3><div class="tw"><table class="dtb"><tr><th>Person</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Open tasks during leave</th></tr>${rows||'<tr><td colspan="6" class="cnt">No leave recorded.</td></tr>'}</table></div></div></div>`}
 function renderDash(){
  const bs=dlive(),all=bs.flatMap(b=>b.groups.flatMap(g=>g.items.map(i=>({...i,board:b.name})))).filter(fo),n=all.length;
  const c=f=>all.filter(f).length,done=c(i=>kd(i)===3),ov=c(late),pct=(a,t)=>t?Math.round(a/t*100):0;
@@ -617,8 +633,9 @@ function renderDash(){
  const rec=srt(Object.values(D.updates)).reverse().slice(0,8).map(u=>{const it=D.items[u.itemId],bd=D.boards[u.boardId];return it&&bd&&canSee(bd)?`<div class="u${u.auto?' auto':''}"><div class="uh"><b>${esc(u.author||'Someone')}</b><span>${esc(fts(u.ts))}</span><button class="lnk" data-a="upd" data-id="${it.id}">${esc(it.name)}</button><span>${esc(bd?bd.name:'')}</span></div><div>${u.kind==='time'?'⏱ '+fh(u.hours)+' logged'+(u.text?': '+esc(u.text):''):esc(u.text)}</div></div>`:''}).join('')||'<span class="cnt">No updates posted yet.</span>';
  const estT=all.reduce((a,i)=>a+(+i.est||0),0),actT=all.reduce((a,i)=>a+hrs(i.id),0),hpan=hoursPanels(all,bs);
  const kp=[['Boards',bs.length],['Items',n],['Done',pct(done,n)+'%'],['In progress',kc(1)],['Stuck',kc(2)],['Due soon',c(soon)],['Overdue',ov],['Est. hours',fh(estT)],['Logged',fh(actT)]];
- document.getElementById('head').innerHTML=`<div class="dt">Dashboard</div><div class="tabs"><button class="${st.dview==='cal'?'':'on'}" data-a="dview" data-v="ov">Overview</button><button class="${st.dview==='cal'?'on':''}" data-a="dview" data-v="cal">Calendar</button></div>${dteamSel()}${dsel()}<button class="btn" data-a="statuses">Edit statuses</button><button class="btn" data-a="team">People</button><button class="btn" data-a="report">Report</button><div class="stats">All <b>${bs.length}</b> boards combined, updated live</div>`;
+ document.getElementById('head').innerHTML=`<div class="dt">Dashboard</div><div class="tabs"><button class="${st.dview==='cal'||st.dview==='leave'?'':'on'}" data-a="dview" data-v="ov">Overview</button><button class="${st.dview==='cal'?'on':''}" data-a="dview" data-v="cal">Calendar</button><button class="${st.dview==='leave'?'on':''}" data-a="dview" data-v="leave">Leave</button></div>${dteamSel()}${dsel()}<button class="btn" data-a="statuses">Edit statuses</button><button class="btn" data-a="team">People</button><button class="btn" data-a="report">Report</button><div class="stats">All <b>${bs.length}</b> boards combined, updated live</div>`;
  if(st.dview==='cal'){document.getElementById('main').innerHTML=renderCal(true);return}
+ if(st.dview==='leave'){document.getElementById('main').innerHTML=renderLeaveDash();return}
  const rows=bs.map(b=>{const it=b.groups.flatMap(g=>g.items).filter(fo),d=it.filter(i=>kd(i)===3).length,o=it.filter(late).length;
   return `<tr><td><button class="lnk" data-a="pick" data-id="${b.id}">${esc(b.name)}</button></td><td>${it.length}</td><td style="min-width:130px"><div class="ht"><i style="width:${pct(d,it.length)}%;background:${'#1f9d6b'}"></i></div></td><td>${pct(d,it.length)}%</td><td>${it.filter(i=>kd(i)===2).length}</td><td class="${o?'late':''}">${o}</td><td>${fh(it.reduce((a,i)=>a+(+i.est||0),0))}</td><td>${fd(it.reduce((a,i)=>a+(+i.est||0),0))}</td></tr>`}).join('');
  document.getElementById('main').innerHTML=`<div class="kp">${kp.map(k=>`<div class="k"><b class="${k[0]==='Overdue'&&ov?'late':''}">${k[1]}</b><span>${k[0]}</span></div>`).join('')}</div>
@@ -654,6 +671,7 @@ document.addEventListener('click',async e=>{
  else if(a==='cprev'||a==='cnext'){const[y,m]=(st.cal||today.slice(0,7)).split('-').map(Number);st.cal=new Date(Date.UTC(y,m-1+(a==='cnext'?1:-1),1)).toISOString().slice(0,7)}
  else if(a==='ctoday')st.cal=today.slice(0,7);
  else if(a==='dview')st.dview=t.dataset.v;
+ else if(a==='lweek'){const d=+t.dataset.d;st.lw=d?(st.lw||0)+d:0}
  else if(a==='gzoom'){const L=[30,14,5,2],cur=L.reduce((m,x,i)=>Math.abs(x-st.gz)<Math.abs(L[m]-st.gz)?i:m,0);st.gz=L[Math.min(L.length-1,Math.max(0,cur+(t.dataset.d==='in'?-1:1)))];window._gz=1}
  else if(a==='gfit'){const g=document.querySelector('.gt');if(g&&gDays){st.gz=Math.max(1.2,Math.min(40,Math.floor((g.clientWidth-290)/gDays*10)/10));window._gz=1}}
  else if(a==='unarch')put('boards',t.dataset.id,{archived:false});
