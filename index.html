@@ -149,6 +149,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .grp.sub{margin:0 0 18px 30px;min-width:0}
 .subs{margin-top:14px}
 @media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
+.lv{flex:none;font-size:13px;cursor:help;padding:0 4px}
 </style>
 </head>
 <body>
@@ -501,8 +502,47 @@ function openTeams(){const cur=D.settings.teams||{},acc=D.settings.access;let ro
    put('settings','access',{emails:E,admins:A},true);o.remove();toast(auto?'Saved. You were added as the first admin.':'Saved');return}
   draw()});
  o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});draw();document.body.appendChild(o)}
+/* ---- leave monitoring: who is away, and which of their tasks fall inside that time ---- */
+const leaves=()=>((D.settings.leaves||{}).list)||[];
+const LTYPES=['Vacation','Sick','Emergency','Other'];
+const lfmt=l=>l.start===l.end?fmt(l.start):fmt(l.start)+' – '+fmt(l.end);
+const ldays=l=>dn(l.end)-dn(l.start)+1;
+function leaveTasks(l){return Object.values(D.items).filter(i=>i.owner===l.person&&kd(i)!==3&&i.due).filter(i=>{const b=D.boards[i.boardId];if(!b||b.archived||!canSee(b))return false;const p=span(i);return dstr(p[0])<=l.end&&dstr(p[1])>=l.start}).map(i=>({...i,board:D.boards[i.boardId].name}))}
+function itemLeave(it){if(!it.owner||!it.due||kd(it)===3)return null;const p=span(it),s=dstr(p[0]),e=dstr(p[1]);return leaves().filter(l=>l.person===it.owner&&l.end>=today&&l.start<=e&&l.end>=s).sort((a,b)=>a.start<b.start?-1:1)[0]||null}
+const lvBadge=it=>{const l=itemLeave(it);return l?`<span class="lv" title="${esc(it.owner)} is on leave ${esc(lfmt(l))} (${esc(l.type)}). This task is scheduled during that time.">🌴</span>`:''};
+const awayNow=()=>leaves().filter(l=>l.start<=today&&l.end>=today);
+function openLeaves(){const adm=isAdmin();let showPast=false,f={person:'',start:today,end:today,type:'Vacation',note:''};
+ const o=document.createElement('div');o.style.cssText=OV;
+ const draw=()=>{const L=leaves().slice().sort((a,b)=>a.start<b.start?-1:a.start>b.start?1:0),cur=L.filter(l=>l.end>=today),past=L.filter(l=>l.end<today).reverse(),away=awayNow(),ppl=team();
+  const row=l=>{const t=leaveTasks(l),now=l.start<=today&&l.end>=today;
+   return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px"><span class="av">${esc(ini(l.person))}</span><div style="flex:1;min-width:0"><b>${esc(l.person)}</b> <span class="cnt">${esc(l.type)}</span><div class="cnt">${esc(lfmt(l))} · ${ldays(l)} day${ldays(l)>1?'s':''}${l.note?' · '+esc(l.note):''}</div></div>${l.end<today?'':`<span style="font-size:12px;padding:2px 8px;border-radius:99px;background:${now?'#d6455d':'var(--hover)'};color:${now?'#fff':'var(--ink)'}">${now?'On leave now':'Upcoming'}</span>`}${adm?`<button class="x" data-s="rm" data-id="${l.id}" aria-label="Remove leave" title="Remove">×</button>`:''}</div>
+    ${t.length?`<details style="margin-top:8px"><summary style="cursor:pointer;color:#d6455d;font-weight:600">${t.length} task${t.length>1?'s':''} scheduled during this leave</summary><div style="margin-top:6px">${t.map(i=>`<div style="display:flex;gap:8px;justify-content:space-between;padding:3px 0"><button class="lnk" data-a="upd" data-id="${i.id}">${esc(i.name)}</button><span class="cnt" style="white-space:nowrap">${esc(i.board)} · due ${esc(fmt(i.due))}</span></div>`).join('')}<div class="cnt" style="margin-top:4px">Reassign these or move the dates.</div></div></details>`:(l.end<today?'':'<div class="cnt" style="margin-top:6px">No open tasks clash with this leave.</div>')}</div>`};
+  o.innerHTML=`<div style="${BOX}width:min(560px,100%);max-height:90%;overflow:auto"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">Leave monitoring</div>
+  <div class="cnt" style="margin:4px 0 12px">Record leave dates per person. Their tasks that fall inside the leave get a 🌴 marker on the boards so you can reassign or reschedule in time.</div>
+  <div style="padding:10px;border-radius:10px;background:var(--hover);margin-bottom:12px">${away.length?'<b>On leave today:</b> '+away.map(l=>esc(l.person)+' <span class="cnt">(until '+esc(fmt(l.end))+')</span>').join(', '):'<span class="cnt">No one is on leave today.</span>'}</div>
+  ${adm?`<div style="border:1px dashed var(--line);border-radius:10px;padding:10px;margin-bottom:14px"><div style="font-weight:600;margin-bottom:8px">Add leave</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    ${ppl.length?`<select class="ti" data-k="person" aria-label="Person"><option value="">Select person</option>${ppl.map(n=>`<option value="${esc(n)}" ${f.person===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`:`<input class="ti" data-k="person" value="${esc(f.person)}" placeholder="Person" aria-label="Person">`}
+    <select class="ti" data-k="type" aria-label="Leave type">${LTYPES.map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select>
+    <label class="cnt">From<input class="ti" type="date" data-k="start" value="${f.start}" style="width:100%"></label>
+    <label class="cnt">To<input class="ti" type="date" data-k="end" value="${f.end}" style="width:100%"></label>
+    <input class="ti" data-k="note" value="${esc(f.note)}" maxlength="80" placeholder="Note (optional)" aria-label="Note" style="grid-column:1/-1"></div>
+   <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn pri" data-s="add">Add leave</button></div></div>`:'<div class="cnt" style="margin-bottom:12px">Only admins can add or remove leave.</div>'}
+  <div style="font-weight:600;margin-bottom:8px">Current and upcoming</div>${cur.map(row).join('')||'<div class="cnt" style="margin-bottom:8px">No leave recorded.</div>'}
+  ${past.length?`<button class="btn" data-s="past" style="margin:6px 0 8px">${showPast?'Hide':'Show'} past leave (${past.length})</button>${showPast?past.map(row).join(''):''}`:''}
+  <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" data-s="x">Close</button></div></div>`};
+ o.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.k;if(k)f[k]=e.target.value});
+ o.addEventListener('click',async e=>{const t=e.target,s=t.dataset&&t.dataset.s;if(t===o||s==='x'){o.remove();return}
+  if(t.closest('[data-a="upd"]')){o.remove();return}
+  if(!s)return;
+  if(s==='past')showPast=!showPast;
+  else if(s==='add'){if(!adm)return;const p=f.person.trim();if(!p){toast('Choose a person');return}if(!f.start||!f.end){toast('Pick the leave dates');return}if(f.end<f.start){toast('The end date is before the start date');return}
+   put('settings','leaves',{list:[...leaves(),{id:uid(),person:p,start:f.start,end:f.end,type:f.type,note:f.note.trim()}]},true);f={person:p,start:f.start,end:f.end,type:f.type,note:''};renderAll();toast('Leave added')}
+  else if(s==='rm'){if(!adm||!await ask('Remove this leave entry?'))return;put('settings','leaves',{list:leaves().filter(l=>l.id!==t.dataset.id)},true);renderAll()}
+  draw()});
+ o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});draw();document.body.appendChild(o)}
 function renderSide(){syncStatuses();
- document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+boardList()+'<button class="bd ghost" data-a="newboard">+ New board</button>'+(isAdmin()?'<button class="bd ghost" data-a="teams" style="margin-top:4px">Manage teams</button>':'')+''+archHtml()+signoutHtml();
+ document.getElementById('side').innerHTML='<h1>Boards</h1>'+`<button class="bd ${st.dash?'on':''}" data-a="dash">Dashboard</button>`+boardList()+'<button class="bd ghost" data-a="newboard">+ New board</button>'+(isAdmin()?'<button class="bd ghost" data-a="teams" style="margin-top:4px">Manage teams</button>':'')+`<button class="bd ghost" data-a="leaves" style="margin-top:4px">Leave monitoring${awayNow().length?`<span class="bi"><i title="${awayNow().length} on leave today">${awayNow().length}</i></span>`:''}</button>`+archHtml()+signoutHtml();
 }
 function renderHead(){
  const b=B(),all=b.groups.flatMap(g=>g.items),done=all.filter(i=>kd(i)===3).length,ov=all.filter(late).length;
@@ -523,7 +563,7 @@ function row(it,k,sub){k=k||[];const cl=!!fold['i'+it.id],dn_=k.filter(c=>kd(c)=
  const nm=`<div class="nm">${sub?'<span class="ind">↳</span>':k.length?`<button class="tg2" data-a="ifold" data-id="${it.id}" aria-label="${cl?'Show':'Hide'} subtasks" aria-expanded="${!cl}">${cl?'▸':'▾'}</button>`:''}<input data-f="name" value="${esc(it.name)}" aria-label="${sub?'Subtask':'Item'} name">${k.length?`<span class="sp" title="Subtasks done">${dn_}/${k.length}</span>`:''}${sub?'':`<button class="x ab" data-a="addsubtask" data-id="${it.id}" title="Add a subtask" aria-label="Add subtask">+ Sub</button>`}</div>`;
  return `<div class="r${sub?' sub':''}" data-id="${it.id}"><div><button class="hd" draggable="true" aria-label="Drag to reorder, or press the up and down arrow keys" title="Drag to reorder">⋮⋮</button></div>
  ${nm}
- <div class="ow"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span>${ownerCell(it)}</div>
+ <div class="ow"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span>${ownerCell(it)}${lvBadge(it)}</div>
  <div>${pill(S,SC,it.status,'status')}</div><div>${pill(P,PC,it.priority,'priority')}</div>
  <div><input type="date" data-f="start" value="${it.start||''}" aria-label="Start date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
  <div><input type="date" data-f="due" value="${it.due||''}" class="${late(it)?'late':soon(it)?'soon':''}" aria-label="Due date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
@@ -560,7 +600,7 @@ function renderKanban(){
   const cards=B().groups.flatMap(g=>g.items).filter(it=>it.status===i&&match(it));
   return `<div class="col" data-s="${i}"><h3><span class="dot" style="background:${SC[i]}"></span>${s}<span class="cnt">${cards.length}</span></h3>
   ${cards.map(it=>`<div class="card" draggable="true" data-id="${it.id}"><div>${esc(it.name)}</div>
-  <div class="m"><span class="tag" style="background:${PC[it.priority]}">${P[it.priority]}</span>${it.owner?`<span class="av" title="${esc(it.owner)}">${esc(ini(it.owner))}</span>`:''}<span class="${late(it)?'late':soon(it)?'soon':''}">${fmt(it.due)}</span><button class="x" data-a="upd" data-id="${it.id}" style="margin-left:auto" aria-label="Updates">💬 ${nUpd(it.id)}</button></div><div class="cnt" style="font-size:12px;margin-top:4px" title="${esc(fts(it.updatedAt))}">Updated ${rel(it.updatedAt)}</div></div>`).join('')}
+  <div class="m"><span class="tag" style="background:${PC[it.priority]}">${P[it.priority]}</span>${it.owner?`<span class="av" title="${esc(it.owner)}">${esc(ini(it.owner))}</span>`:''}${lvBadge(it)}<span class="${late(it)?'late':soon(it)?'soon':''}">${fmt(it.due)}</span><button class="x" data-a="upd" data-id="${it.id}" style="margin-left:auto" aria-label="Updates">💬 ${nUpd(it.id)}</button></div><div class="cnt" style="font-size:12px;margin-top:4px" title="${esc(fts(it.updatedAt))}">Updated ${rel(it.updatedAt)}</div></div>`).join('')}
   <button class="btn" style="width:100%" data-a="kadd" data-s="${i}">+ Add</button></div>`}).join('')+'</div>';
 }
 function renderMain(){const m=document.getElementById('main'),g0=m.querySelector('.gt'),sx=g0?g0.scrollLeft:null,sy=g0?g0.scrollTop:0;
@@ -605,6 +645,7 @@ document.addEventListener('click',async e=>{
  else if(a==='statuses'){openStatuses();return}
  else if(a==='team'){openTeam();return}
  else if(a==='teams'){if(!isAdmin()){toast('Only admins can manage teams');return}openTeams();return}
+ else if(a==='leaves'){openLeaves();return}
  else if(a==='glogin'){gLogin();return}
  else if(a==='signout'){auth0.signOut().then(()=>location.reload());return}
  else if(a==='report'){openReport();return}
