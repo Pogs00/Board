@@ -102,7 +102,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .gtool select,.sr input:not([type=color]),.sr select{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;min-width:0}
 .gt{overflow:auto;max-height:calc(100vh - 210px);border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .gt-in{position:relative}.gr{display:flex;border-bottom:1px solid var(--line);height:36px}
-.gl{width:260px;flex:none;position:sticky;left:0;z-index:3;background:var(--panel);border-right:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px;overflow:hidden;white-space:nowrap}
+.gl{width:var(--glw,260px);flex:none;position:sticky;left:0;z-index:3;background:var(--panel);border-right:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px;overflow:hidden;white-space:nowrap}
 .gn2{overflow:hidden;text-overflow:ellipsis}
 .gk{position:relative;flex:none;background-image:linear-gradient(to right,var(--line) 1px,transparent 1px)}
 .gg,.gg .gl{background:var(--hover)}.gg .gk{background-image:none}
@@ -149,12 +149,48 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .btn.sm{padding:3px 10px;font-size:12.5px}
 .grp.sub{margin:0 0 18px 30px;min-width:0}
 .subs{margin-top:14px}
-@media (max-width:700px){#side{width:150px}#head{padding:14px}#main{padding:4px 12px 40px}}
+#mnav,#mbd,#sbt{display:none}
+@media (min-width:761px){
+ #sbt{display:grid;place-items:center;position:fixed;z-index:30;left:206px;top:16px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:16px;line-height:1;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+ #sbt:hover{background:var(--hover)}
+ body.sb-hidden #side{display:none}
+ body.sb-hidden #sbt{left:8px}
+ body.sb-hidden #head{padding-left:48px}
+}
+button,select{touch-action:manipulation}
+@media (max-width:760px){
+ input,select,textarea{font-size:16px!important}
+ #mnav{display:grid;place-items:center;position:fixed;z-index:45;left:10px;top:calc(10px + env(safe-area-inset-top,0px));width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;line-height:1;cursor:pointer;padding:0}
+ #side{position:fixed;z-index:40;left:0;top:0;bottom:0;width:min(290px,86vw);transform:translateX(-102%);transition:transform .22s ease;padding-top:calc(18px + env(safe-area-inset-top,0px));padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+ body.nav-open #side{transform:none;box-shadow:8px 0 40px rgba(0,0,0,.35)}
+ body.nav-open #mbd{display:block;position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.45)}
+ #head{padding:12px 12px 8px 60px;gap:8px}
+ #title,.dt{font-size:21px;flex:1 1 140px}
+ .tabs{max-width:100%;overflow-x:auto}.tabs button{padding:9px 12px;white-space:nowrap}
+ #q{flex:1 1 140px;width:auto;min-width:0}
+ .btn{padding:9px 12px}.dsel{padding:9px 10px}
+ .fbar select{max-width:48%}
+ #main{padding:4px 10px 40px;-webkit-overflow-scrolling:touch}
+ .grp{min-width:1160px}.grp.sub{min-width:0}
+ .r{grid-template-columns:26px minmax(160px,1fr) 130px 130px 110px 130px 130px 70px 80px 90px 56px 34px}
+ .r:not(.th)>*{height:44px}.add{height:44px}
+ .r>:nth-child(1),.r>:nth-child(2){position:sticky;z-index:2;background:var(--panel)}
+ .r>:nth-child(1){left:0}.r>:nth-child(2){left:26px;box-shadow:3px 0 5px -3px rgba(0,0,0,.25)}
+ .r.sub>:nth-child(1),.r.sub>:nth-child(2){background:var(--bg)}
+ .gn{width:auto;max-width:60%}
+ .kb{min-width:0;width:max-content}.col{flex:0 0 min(300px,80vw)}
+ .cg{min-width:560px}
+ .gt{max-height:calc(100dvh - 230px)}
+ .dg{grid-template-columns:1fr}.kp{grid-template-columns:repeat(2,1fr)}
+ .sr{grid-template-columns:32px 1fr 100px 28px 28px 28px}
+}
+@media (max-width:380px){.kp{grid-template-columns:1fr}}
 .lg{display:grid;min-width:820px;font-size:12.5px}.lg>div{border-bottom:1px solid var(--line);min-height:28px;text-align:center;display:flex;flex-direction:column;justify-content:center}.lg>.nm{text-align:left;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:28px}.lg .we{background:var(--hover)}.lg .td{box-shadow:inset 1px 0 var(--accent),inset -1px 0 var(--accent)}.lb{display:block;height:16px}
 .lv{flex:none;font-size:13px;cursor:help;padding:0 4px}
 </style>
 </head>
 <body>
+<button id="mnav" aria-label="Open menu" aria-expanded="false">☰</button><div id="mbd"></div><button id="sbt" aria-label="Hide sidebar" title="Hide sidebar" aria-expanded="true">‹</button>
 <div id="app">
   <nav id="side"></nav>
   <div id="wrap"><div id="head"></div><div id="main"></div></div>
@@ -255,7 +291,7 @@ function renderGantt(){
    h+=`<div class="gr" data-id="${it.id}"><div class="gl"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span><span class="gn2">${it.parentId?'↳ ':''}${esc(it.name)}</span></div><div class="gk${p?'':' un'}" style="width:${tw}px;background-size:${dw}px 100%">${bar}</div></div>`});
   return h}).join('');
  return `<div class="gtool"><button class="btn" data-a="gzoom" data-d="out" aria-label="Zoom out">−</button><select id="gz" class="dsel" aria-label="Zoom level">${[[30,'Day'],[14,'Week'],[5,'Month'],[2,'Quarter'],...([30,14,5,2].includes(dw)?[]:[[dw,'Custom']])].map(([v,t])=>`<option value="${v}" ${v===dw?'selected':''}>${t}</option>`).join('')}</select><button class="btn" data-a="gzoom" data-d="in" aria-label="Zoom in">+</button><button class="btn" data-a="gfit">Fit all</button><button class="btn" data-a="gtoday">Today</button><span>Drag a bar to move it, drag its edges to resize, click it for notes.</span></div>
- <div class="gt"><div class="gt-in" style="width:${260+tw}px"><div class="gr gh2"><div class="gl">Item</div><div class="gk" style="width:${tw}px;background-size:${dw}px 100%"><div class="mh">${mh}</div><div class="dh">${dh}</div></div></div>${rows}<div class="tline" style="left:${260+(tn-lo)*dw+dw/2}px"></div></div></div>`}
+ <div class="gt"><div class="gt-in" style="--glw:${GLW()}px;width:${GLW()+tw}px"><div class="gr gh2"><div class="gl">Item</div><div class="gk" style="width:${tw}px;background-size:${dw}px 100%"><div class="mh">${mh}</div><div class="dh">${dh}</div></div></div>${rows}<div class="tline" style="left:${GLW()+(tn-lo)*dw+dw/2}px"></div></div></div>`}
 document.addEventListener('pointerdown',e=>{const bar=e.target.closest&&e.target.closest('.bar2');if(!bar||e.button>0)return;const it=D.items[bar.dataset.id],p=it&&span(it);if(!p)return;
  gd={lock:kidsDated(it.id),id:it.id,mode:e.target.classList.contains('rl')?'l':e.target.classList.contains('rr')?'r':'m',x:e.clientX,s:p[0],e:p[1],lo:gLo,dw:st.gz||30,bar,moved:false};try{bar.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
 document.addEventListener('pointermove',e=>{if(!gd||gd.lock)return;if(Math.abs(e.clientX-gd.x)>3)gd.moved=true;if(!gd.moved)return;const dd=Math.round((e.clientX-gd.x)/gd.dw);let s=gd.s,en=gd.e;
@@ -651,6 +687,7 @@ document.addEventListener('input',e=>{const t=e.target,k=t.dataset&&t.dataset.nk
  const li=document.querySelector('[data-nsel="'+id+'"] .nt');if(li)li.textContent=nDirty.title.trim()||'Untitled note'});
 document.addEventListener('focusout',e=>{const k=e.target.dataset&&e.target.dataset.nk;if(k&&k!=='q')saveNotesNow()});
 window.addEventListener('beforeunload',saveNotesNow);
+const GLW=()=>matchMedia('(max-width:760px)').matches?150:260;
 function renderDash(){
  const bs=dlive(),all=bs.flatMap(b=>b.groups.flatMap(g=>g.items.map(i=>({...i,board:b.name})))).filter(fo),n=all.length;
  const c=f=>all.filter(f).length,done=c(i=>kd(i)===3),ov=c(late),pct=(a,t)=>t?Math.round(a/t*100):0;
@@ -789,6 +826,19 @@ function later(){if(upId)renderUpd();if(st.dash&&st.dview==='notes'){renderSide(
  if(!window.firebase){gate('<p class="cnt">Could not load Firebase. Check your connection and reload.</p>');return}
  firebase.initializeApp(FIREBASE_CONFIG);auth0=firebase.auth();
  auth0.onAuthStateChanged(u=>{if(!u){gate('<p class="cnt">Sign in with your Google account to open the team boards.</p><button class="btn pri" data-a="glogin">Sign in with Google</button><div id="gerr" style="color:#d6455d;margin-top:12px"></div>');return}if(db)return;ungate();start(u)})})();
+</script>
+<script>
+(function(){const b=document.body,n=document.getElementById('mnav');
+const set=o=>{b.classList.toggle('nav-open',o);n.setAttribute('aria-expanded',o);n.setAttribute('aria-label',o?'Close menu':'Open menu');n.textContent=o?'✕':'☰'};
+n.addEventListener('click',()=>set(!b.classList.contains('nav-open')));
+document.getElementById('mbd').addEventListener('click',()=>set(false));
+document.addEventListener('click',e=>{if(e.target.closest('#side [data-a="view"],#side [data-a="dash"],#side [data-a="newboard"],#side [data-a="leaves"],#side [data-a="teams"]'))set(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')set(false)});
+window.addEventListener('resize',()=>{if(innerWidth>760)set(false)});
+const sb=document.getElementById('sbt'),setSb=h=>{b.classList.toggle('sb-hidden',h);sb.textContent=h?'›':'‹';sb.title=sb.ariaLabel=h?'Show sidebar':'Hide sidebar';sb.setAttribute('aria-expanded',!h);try{localStorage.setItem('sb-hidden',h?'1':'')}catch(e){}};
+let h0=false;try{h0=localStorage.getItem('sb-hidden')==='1'}catch(e){}
+if(h0)setSb(true);
+sb.addEventListener('click',()=>setSb(!b.classList.contains('sb-hidden')));})();
 </script>
 </body>
 </html>
