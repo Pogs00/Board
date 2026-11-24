@@ -130,6 +130,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .fbar{order:2;width:100%;display:flex;flex-wrap:wrap;gap:8px}
 .fbar select{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;max-width:170px}
 .osel{border:0;background:none;color:var(--ink);font:inherit;padding:0 4px;width:100%;height:100%;min-width:0}.osel:hover{background:var(--hover)}
+.obtn{position:relative;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:16px}.obtn:after{content:"▾";position:absolute;right:5px;top:50%;transform:translateY(-50%);opacity:.45}
+.avs{display:flex;flex:none}.avs .av{border:2px solid var(--panel);width:26px;height:26px}.avs .av+.av{margin-left:-7px}
+#opop label:hover{background:var(--hover)}
 .soon{color:#b8741a;font-weight:600}
 .u.auto{background:var(--hover);border-style:dashed;color:var(--mute)}
 .cg{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);min-width:700px}
@@ -251,11 +254,17 @@ function delGroup(id){Object.values(D.groups).filter(x=>x.parentId===id).forEach
 const gname=g=>{const p=D.groups[g.parentId];return p?gname(p)+' › '+g.name:g.name};
 const gdepth=g=>{let d=0,p=D.groups[g.parentId];while(p&&d<9){d++;p=D.groups[p.parentId]}return d};
 const newGroup=(bid,name,n)=>put('groups',uid(),{boardId:bid,name,color:GC[n%GC.length],order:now()});
-const newItem=(g,name,status,pri,parentId)=>{const id=uid();put('items',id,{boardId:g.boardId,groupId:g.id,parentId:parentId||'',name,owner:'',status,priority:pri,due:'',order:now()});logAct(id,'Item created');if(parentId)syncDone(parentId)};
+const newItem=(g,name,status,pri,parentId)=>{const id=uid();put('items',id,{boardId:g.boardId,groupId:g.id,parentId:parentId||'',name,owner:'',owners:[],status,priority:pri,due:'',order:now()});logAct(id,'Item created');if(parentId)syncDone(parentId)};
+/* ---- multiple owners: item.owners is a list; item.owner keeps the same names as text for older code, exports and the activity log ---- */
+const owl=it=>Array.isArray(it.owners)?it.owners.filter(Boolean):(it.owner?[String(it.owner)]:[]);
+const ownTxt=it=>owl(it).join(', ');
+const avs=it=>{const n=owl(it);if(!n.length)return '<span class="av e"></span>';
+ return `<span class="avs" title="${esc(n.join(', '))}">${n.slice(0,3).map(x=>`<span class="av">${esc(ini(x))}</span>`).join('')}${n.length>3?`<span class="av e" style="color:var(--mute)">+${n.length-3}</span>`:''}</span>`};
+const setOwners=(id,l)=>{l=[...new Set(l.map(x=>String(x).trim()).filter(Boolean))];trk(id,{owners:l,owner:l.join(', ')})};
 const fs={owner:'',status:'',pri:'',flag:'',sort:''};
 const soon=it=>it.due&&kd(it)!==3&&it.due>=today&&it.due<=dstr(dn(today)+3);
 const sorters={due:(a,b)=>(a.due||'9')<(b.due||'9')?-1:1,pri:(a,b)=>b.priority-a.priority,status:(a,b)=>a.status-b.status,name:(a,b)=>a.name.localeCompare(b.name),upd:(a,b)=>(b.updatedAt||0)-(a.updatedAt||0)};
-const match=it=>(!q||(it.name+' '+it.owner).toLowerCase().includes(q.toLowerCase()))&&(!fs.owner||(fs.owner==='__none'?!it.owner:it.owner===fs.owner))&&(fs.status===''||it.status===+fs.status)&&(fs.pri===''||it.priority===+fs.pri)&&(!fs.flag||(fs.flag==='late'?late(it):fs.flag==='soon'?soon(it):!it.due));
+const match=it=>(!q||(it.name+' '+ownTxt(it)).toLowerCase().includes(q.toLowerCase()))&&(!fs.owner||(fs.owner==='__none'?!owl(it).length:owl(it).includes(fs.owner)))&&(fs.status===''||it.status===+fs.status)&&(fs.pri===''||it.priority===+fs.pri)&&(!fs.flag||(fs.flag==='late'?late(it):fs.flag==='soon'?soon(it):!it.due));
 let today=lday(new Date());
 /* keep 'today' correct when the tab stays open past midnight (local time, not UTC) */
 const syncToday=()=>{const t=lday(new Date());if(t!==today){today=t;try{renderAll()}catch(e){}}};
@@ -296,7 +305,7 @@ function renderGantt(){
   if(g.collapsed)return h;
   g.items.filter(match).forEach(it=>{const p=span(it);
    const bar=p?`<div class="bar2${late(it)?' ov':''}${kd(it)===3?' dn':''}" data-id="${it.id}" style="left:${(p[0]-lo)*dw}px;width:${Math.max(4,(p[1]-p[0]+1)*dw-2)}px;background:${SC[it.status]||'#888'}" title="${esc(it.name)}: ${fmt(dstr(p[0]))} to ${fmt(dstr(p[1]))}"><i class="rl"></i><span>${esc(it.name)}</span><i class="rr"></i></div>`:'';
-   h+=`<div class="gr" data-id="${it.id}"><div class="gl"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span><span class="gn2">${it.parentId?'↳ ':''}${esc(it.name)}</span></div><div class="gk${p?'':' un'}" style="width:${tw}px;background-size:${dw}px 100%">${bar}</div></div>`});
+   h+=`<div class="gr" data-id="${it.id}"><div class="gl">${avs(it)}<span class="gn2">${it.parentId?'↳ ':''}${esc(it.name)}</span></div><div class="gk${p?'':' un'}" style="width:${tw}px;background-size:${dw}px 100%">${bar}</div></div>`});
   return h}).join('');
  return `<div class="gtool"><button class="btn" data-a="gzoom" data-d="out" aria-label="Zoom out">−</button><select id="gz" class="dsel" aria-label="Zoom level">${[[30,'Day'],[14,'Week'],[5,'Month'],[2,'Quarter'],...([30,14,5,2].includes(dw)?[]:[[dw,'Custom']])].map(([v,t])=>`<option value="${v}" ${v===dw?'selected':''}>${t}</option>`).join('')}</select><button class="btn" data-a="gzoom" data-d="in" aria-label="Zoom in">+</button><button class="btn" data-a="gfit">Fit all</button><button class="btn" data-a="gtoday">Today</button><span>Drag a bar to move it, drag its edges to resize, click it for notes.</span></div>
  <div class="gt"><div class="gt-in" style="--glw:${GLW()}px;width:${GLW()+tw}px"><div class="gr gh2"><div class="gl">Item</div><div class="gk" style="width:${tw}px;background-size:${dw}px 100%"><div class="mh">${mh}</div><div class="dh">${dh}</div></div></div>${rows}<div class="tline" style="left:${GLW()+(tn-lo)*dw+dw/2}px"></div></div></div>`}
@@ -328,8 +337,8 @@ function openStatuses(){const KN=['Not started','Working on it','Stuck','Done'],
   draw()});
  o.addEventListener('keydown',e=>{if(e.key==='Escape')o.remove()});
  draw();document.body.appendChild(o)}
-const team=()=>{const l=((D.settings.team||{}).list)||[];return l.length?l:[...new Set(Object.values(D.items).map(i=>(i.owner||'').trim()).filter(Boolean))].sort()};
-const fo=it=>!st.downer||(st.downer==='__none'?!it.owner:it.owner===st.downer);
+const team=()=>{const l=((D.settings.team||{}).list)||[];return l.length?l:[...new Set(Object.values(D.items).flatMap(owl).map(x=>x.trim()).filter(Boolean))].sort()};
+const fo=it=>!st.downer||(st.downer==='__none'?!owl(it).length:owl(it).includes(st.downer));
 function dsel(){const nm=me()!=='Someone'?me():'',t=team(),opts=[...(nm&&!t.includes(nm)?[nm]:[]),...t];return `<select class="dsel" data-ds="1" aria-label="Filter dashboard by owner"><option value="">Owner: everyone</option>${opts.map(n=>`<option value="${esc(n)}" ${st.downer===n?'selected':''}>${esc(n)}${n===nm?' (me)':''}</option>`).join('')}<option value="__none" ${st.downer==='__none'?'selected':''}>Unassigned</option></select>`}
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.ds){st.downer=e.target.value;renderAll()}});
 function me(){try{return localStorage.getItem('boards-name')||'Someone'}catch(e){return 'Someone'}}
@@ -355,15 +364,34 @@ const gRangeTxt=g=>{const r=gRange(g);return r?`<span class="cnt" title="Auto-se
 function trk(id,patch){const it=D.items[id];if(!it)return;if(patch.status!==undefined&&!('autoDone' in patch)&&it.autoDone)patch={...patch,autoDone:false};Object.keys(patch).forEach(f=>{if(FL[f]&&nv(it[f])!==nv(patch[f]))logAct(id,`${FL[f]}: ${vtxt(f,it[f])} → ${vtxt(f,patch[f])}`)});put('items',id,patch);const pr=D.items[id]&&D.items[id].parentId;if(pr){if('start' in patch||'due' in patch)syncParent(pr);if('status' in patch)syncDone(pr)}}
 function delItemUndo(id){const it=D.items[id];if(!it)return;const its=[it,...Object.values(D.items).filter(c=>c.parentId===id)],ids=its.map(x=>x.id),ups=Object.values(D.updates).filter(u=>ids.includes(u.itemId));delItem(id);if(it.parentId){syncParent(it.parentId);syncDone(it.parentId)}toast(its.length>1?'Item and '+(its.length-1)+' subtask'+(its.length>2?'s':'')+' deleted':'Item deleted',()=>{bulk=true;its.forEach(x=>put('items',x.id,x,true));ups.forEach(u=>put('updates',u.id,u,true));bulk=false;if(it.parentId){syncParent(it.parentId);syncDone(it.parentId)}renderAll()})}
 const archHtml=()=>{const a=boards().filter(b=>b.archived&&canSee(b));return a.length?'<div style="margin:16px 10px 4px;font-size:12px;opacity:.6">ARCHIVED</div>'+a.map(b=>`<div class="bd" style="cursor:default"><span style="overflow:hidden;text-overflow:ellipsis">${esc(b.name)}</span><span><button class="x" style="color:inherit" data-a="unarch" data-id="${b.id}" title="Restore" aria-label="Restore board">↩</button><button class="x" style="color:inherit" data-a="purge" data-id="${b.id}" title="Delete forever" aria-label="Delete forever">×</button></span></div>`).join(''):''};
-function ownerCell(it){const t=team();if(!t.length)return `<input data-f="owner" value="${esc(it.owner)}" placeholder="Assign" aria-label="Owner">`;
- const ex=it.owner&&!t.includes(it.owner)?[it.owner]:[];return `<select class="osel" data-f="owner" aria-label="Owner"><option value="">Unassigned</option>${[...t,...ex].map(n=>`<option value="${esc(n)}" ${n===it.owner?'selected':''}>${esc(n)}</option>`).join('')}</select>`}
-function fbar(){const its=B().groups.flatMap(g=>g.items),nm=me()!=='Someone'?me():'',own=[...new Set([...team(),...its.map(i=>i.owner).filter(Boolean)])];
+function ownerCell(it){const n=owl(it),lab=n.length?n[0]+(n.length>1?' +'+(n.length-1):''):'Unassigned';
+ return `<button class="osel obtn" data-a="own" data-id="${it.id}" aria-haspopup="dialog" aria-label="Owners: ${esc(n.join(', ')||'none')}. Change owners" title="${esc(n.join(', ')||'Click to assign owners')}">${esc(lab)}</button>`}
+function closeOwn(){const p=document.getElementById('opop');if(p)p.remove()}
+function openOwners(btn,id){const was=document.getElementById('opop');if(was&&was.dataset.id===id){closeOwn();return}closeOwn();if(!D.items[id])return;
+ const p=document.createElement('div');p.id='opop';p.dataset.id=id;p.setAttribute('role','dialog');p.setAttribute('aria-label','Choose owners');
+ p.style.cssText='position:fixed;z-index:30;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:8px;width:236px;max-height:min(360px,70vh);display:flex;flex-direction:column;gap:6px';
+ const draw=()=>{const cur=owl(D.items[id]||{}),all=[...new Set([...team(),...cur])];
+  p.innerHTML=`<div class="cnt" style="padding:2px 4px">Pick one or more owners</div><div style="overflow:auto">${all.map(n=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer"><input type="checkbox" data-on="${esc(n)}" ${cur.includes(n)?'checked':''}><span class="av" style="width:20px;height:20px;font-size:10px">${esc(ini(n))}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(n)}</span></label>`).join('')||'<div class="cnt" style="padding:6px">No people yet. Add a name below.</div>'}</div><input id="oadd" class="ti" placeholder="Add a name, press Enter" maxlength="60" aria-label="Add a person">`};
+ draw();
+ p.onchange=e=>{const n=e.target.dataset&&e.target.dataset.on;if(n===undefined)return;const cur=owl(D.items[id]||{});setOwners(id,e.target.checked?[...cur,n]:cur.filter(x=>x!==n))};
+ p.onkeydown=e=>{if(e.key==='Escape'){closeOwn();btn.focus&&btn.isConnected&&btn.focus();return}
+  if(e.key==='Enter'&&e.target.id==='oadd'){const v=e.target.value.trim();if(!v)return;e.preventDefault();
+   const tl=((D.settings.team||{}).list)||[];if(tl.length&&!tl.includes(v))put('settings','team',{list:[...tl,v]},true);
+   setOwners(id,[...owl(D.items[id]||{}),v]);draw();const a=p.querySelector('#oadd');a&&a.focus()}};
+ document.body.appendChild(p);
+ const r=btn.getBoundingClientRect(),h=p.offsetHeight;let top=r.bottom+4;if(top+h>innerHeight-8)top=Math.max(8,r.top-h-4);
+ p.style.top=top+'px';p.style.left=Math.max(8,Math.min(r.left,innerWidth-244))+'px';
+ const f=p.querySelector('input[type=checkbox]')||p.querySelector('#oadd');f&&f.focus()}
+document.addEventListener('mousedown',e=>{if(!e.target.closest('#opop')&&!e.target.closest('[data-a="own"]'))closeOwn()});
+document.addEventListener('scroll',e=>{if(!(e.target.closest&&e.target.closest('#opop')))closeOwn()},true);
+window.addEventListener('resize',closeOwn);
+function fbar(){const its=B().groups.flatMap(g=>g.items),nm=me()!=='Someone'?me():'',own=[...new Set([...team(),...its.flatMap(owl)])];
  const opts=[...(nm?[[nm,'Me ('+nm+')']]:[]),['__none','Unassigned'],...own.filter(o=>o!==nm).map(o=>[o,o])];
  const f=(k,l,o)=>`<select data-fs="${k}" aria-label="${l}"><option value="">${l}: all</option>${o.map(([v,t])=>`<option value="${esc(v)}" ${String(fs[k])===String(v)?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
  const act=fs.owner||fs.status!==''||fs.pri!==''||fs.flag;
  return `<div class="fbar">${f('owner','Owner',opts)}${f('status','Status',S.map((x,i)=>[i,x]))}${f('pri','Priority',P.map((x,i)=>[i,x]))}${f('flag','Show',[['late','Overdue'],['soon','Due in 3 days'],['nodate','No due date']])}<select data-fs="sort" aria-label="Sort table"><option value="">Sort: manual order</option>${[['due','Due date'],['pri','Priority'],['status','Status'],['name','Name'],['upd','Recently updated']].map(([v,t])=>`<option value="${v}" ${fs.sort===v?'selected':''}>Sort: ${t}</option>`).join('')}</select>${act?'<button class="btn" data-a="fclear">Clear filters</button>':''}</div>`}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.fs;if(k){fs[k]=e.target.value;renderAll()}});
-function openTeam(){const cur=team().length?team():[...new Set(Object.values(D.items).map(i=>(i.owner||'').trim()).filter(Boolean))];
+function openTeam(){const cur=team().length?team():[...new Set(Object.values(D.items).flatMap(owl).map(x=>x.trim()).filter(Boolean))];
  const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:20;padding:16px';
  o.innerHTML=`<div style="background:var(--panel);color:var(--ink);border-radius:12px;padding:20px;width:min(400px,100%);box-shadow:0 10px 40px rgba(0,0,0,.3)"><div style="font:700 18px 'Bricolage Grotesque',sans-serif">People</div><div class="cnt" style="margin:4px 0 10px">One name per line. These become the Owner dropdown on every board. Renaming someone here does not rename them on existing items.</div><textarea id="tm" rows="8" style="width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit">${esc(cur.join('\n'))}</textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-s="x">Cancel</button><button class="btn pri" data-s="ok">Save</button></div></div>`;
  o.onclick=e=>{const a=e.target.dataset&&e.target.dataset.s;if(e.target===o||a==='x')o.remove();else if(a==='ok'){const l=[...new Set(o.querySelector('#tm').value.split('\n').map(x=>x.trim()).filter(Boolean))];put('settings','team',{list:l},true);o.remove();toast('People saved')}};
@@ -391,12 +419,12 @@ async function xlsxReport(data,layout){await lib(EJ);const wb=new ExcelJS.Workbo
  if(data.length>1){const w=wb.addWorksheet('Summary');w.addRow(['Board','Items','Done','Overdue']);hdr(w.getRow(1));data.forEach(b=>{const it=b.groups.flatMap(g=>g.items);w.addRow([b.name,it.length,it.filter(i=>kd(i)===3).length,it.filter(late).length])});[28,10,10,10].forEach((x,i)=>w.getColumn(i+1).width=x)}
  data.forEach(b=>{const ws=wb.addWorksheet(nm(b.name));
   if(layout==='table'){ws.addRow(['Group','Item','Owner','Status','Priority','Start','Due','Est. hours','Logged hours','Last updated','Notes']);hdr(ws.getRow(1));
-   b.groups.forEach(g=>g.items.forEach(it=>{const r=ws.addRow([g.name,it.name,it.owner||'',S[it.status]||'',P[it.priority]||'',it.start||'',it.due||'',it.est||'',hrs(it.id),it.updatedAt?new Date(it.updatedAt).toLocaleString():'',nUpd(it.id)]);
+   b.groups.forEach(g=>g.items.forEach(it=>{const r=ws.addRow([g.name,it.name,ownTxt(it),S[it.status]||'',P[it.priority]||'',it.start||'',it.due||'',it.est||'',hrs(it.id),it.updatedAt?new Date(it.updatedAt).toLocaleString():'',nUpd(it.id)]);
     const c=r.getCell(4);c.fill=fill(xc(SC[it.status]));c.font={bold:true,color:{argb:'FFFFFFFF'}};if(late(it))r.getCell(7).font={bold:true,color:{argb:'FFD6455D'}}}));
    [16,34,18,16,12,12,12,11,12,20,8].forEach((w,i)=>ws.getColumn(i+1).width=w);ws.views=[{state:'frozen',ySplit:1}];ws.autoFilter={from:'A1',to:'K1'}}
   else if(layout==='kanban'){const all=b.groups.flatMap(g=>g.items.map(it=>({it,g}))),cols=S.map((s,i)=>all.filter(a=>a.it.status===i));
    S.forEach((s,i)=>{const c=ws.getCell(1,i+1);c.value=`${s} (${cols[i].length})`;c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill=fill(xc(SC[i]));ws.getColumn(i+1).width=32;
-    cols[i].forEach((a,r)=>{const k=ws.getCell(r+2,i+1);k.value=`${a.it.name}\n${a.it.owner||'Unassigned'}${a.it.due?' · due '+a.it.due:''}\n[${a.g.name}]`;k.alignment={wrapText:true,vertical:'top'};
+    cols[i].forEach((a,r)=>{const k=ws.getCell(r+2,i+1);k.value=`${a.it.name}\n${ownTxt(a.it)||'Unassigned'}${a.it.due?' · due '+a.it.due:''}\n[${a.g.name}]`;k.alignment={wrapText:true,vertical:'top'};
      k.border={top:{style:'thin',color:{argb:'FFE1E6EE'}},bottom:{style:'thin',color:{argb:'FFE1E6EE'}},left:{style:'thick',color:{argb:xc(a.g.color)}}};ws.getRow(r+2).height=48})})}
   else{const rows=b.groups.flatMap(g=>g.items.map(it=>({it,g,p:span(it)}))),sp=rows.map(r=>r.p).filter(Boolean);
    if(!sp.length){ws.addRow(['No scheduled items on this board']);return}
@@ -404,14 +432,14 @@ async function xlsxReport(data,layout){await lib(EJ);const wb=new ExcelJS.Workbo
    ['Group','Item','Owner','Status','Start','Due'].forEach((h,i)=>r2.getCell(i+1).value=h);
    let lm=-1;for(let k=0;k<n;k++){const d=new Date((lo+k*stp)*864e5),m=d.getUTCFullYear()*12+d.getUTCMonth();if(m!==lm){r1.getCell(F+1+k).value=d.toLocaleString(undefined,{month:'short',year:'2-digit',timeZone:'UTC'});lm=m}r2.getCell(F+1+k).value=d.getUTCDate();ws.getColumn(F+1+k).width=wk?4.5:3.2}
    hdr(r1);hdr(r2);
-   rows.forEach((r,ri)=>{const row=ws.getRow(ri+3);[r.g.name,r.it.name,r.it.owner||'',S[r.it.status]||'',r.it.start||'',r.it.due||''].forEach((v,i)=>row.getCell(i+1).value=v);
+   rows.forEach((r,ri)=>{const row=ws.getRow(ri+3);[r.g.name,r.it.name,ownTxt(r.it),S[r.it.status]||'',r.it.start||'',r.it.due||''].forEach((v,i)=>row.getCell(i+1).value=v);
     if(r.p)for(let k=0;k<n;k++){const a=lo+k*stp;if(a<=r.p[1]&&a+stp-1>=r.p[0])row.getCell(F+1+k).fill=fill(xc(SC[r.it.status]))}});
    [16,32,16,14,12,12].forEach((w,i)=>ws.getColumn(i+1).width=w);ws.views=[{state:'frozen',xSplit:F,ySplit:2}]}});
  return new Blob([await wb.xlsx.writeBuffer()],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
 async function pdfReport(data,layout){await lib(JP);await lib(AT);const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'}),W=297,H=210,M=10;
  data.forEach((b,bi)=>{if(bi)doc.addPage();const cnt=b.groups.reduce((n,g)=>n+g.items.length,0);
   doc.setFontSize(16);doc.setTextColor(23,32,46);doc.text(b.name,M,M+6);doc.setFontSize(9);doc.setTextColor(107,118,137);doc.text(`${layout.toUpperCase()} report, generated ${new Date().toLocaleString()}, ${cnt} items`,M,M+12);const y0=M+17;
-  if(layout==='table'){const body=[];b.groups.forEach(g=>{body.push([{content:g.name,colSpan:9,styles:{fillColor:rgb(g.color),textColor:255,fontStyle:'bold'}}]);g.items.forEach(it=>body.push([it.name,it.owner||'',S[it.status]||'',P[it.priority]||'',it.start||'',it.due||'',it.est||'',hrs(it.id)||'',it.updatedAt?new Date(it.updatedAt).toLocaleDateString():'']))});
+  if(layout==='table'){const body=[];b.groups.forEach(g=>{body.push([{content:g.name,colSpan:9,styles:{fillColor:rgb(g.color),textColor:255,fontStyle:'bold'}}]);g.items.forEach(it=>body.push([it.name,ownTxt(it),S[it.status]||'',P[it.priority]||'',it.start||'',it.due||'',it.est||'',hrs(it.id)||'',it.updatedAt?new Date(it.updatedAt).toLocaleDateString():'']))});
    doc.autoTable({startY:y0,head:[['Item','Owner','Status','Priority','Start','Due','Est h','Logged h','Updated']],body,theme:'grid',styles:{fontSize:8,cellPadding:1.8},headStyles:{fillColor:[23,32,46]},margin:{left:M,right:M},
     didParseCell:h=>{if(h.section==='body'&&h.column.index===2&&typeof h.cell.raw==='string'){const i=S.indexOf(h.cell.raw);if(i>=0){h.cell.styles.fillColor=rgb(SC[i]);h.cell.styles.textColor=255;h.cell.styles.fontStyle='bold'}}}})}
   else if(layout==='kanban'){const n=S.length,cw=(W-2*M-(n-1)*3)/n,all=b.groups.flatMap(g=>g.items.map(it=>({it,g}))),cols=S.map((s,i)=>all.filter(a=>a.it.status===i));
@@ -420,7 +448,7 @@ async function pdfReport(data,layout){await lib(JP);await lib(AT);const doc=new 
    for(let r=0;r<Math.max(0,...cols.map(c=>c.length));r++){doc.setFontSize(8);const cs=cols.map(c=>c[r]&&{a:c[r],l:doc.splitTextToSize(c[r].it.name,cw-5)}),h=Math.max(...cs.map(c=>c?c.l.length*3.6+9:0));
     if(y+h>H-M-4){doc.addPage();heads(M);y=M+10}
     cs.forEach((c,i)=>{if(!c)return;const x=M+i*(cw+3);doc.setDrawColor(225,230,238);doc.setFillColor(255,255,255);doc.roundedRect(x,y,cw,h-1.5,1,1,'FD');doc.setFillColor(...rgb(c.a.g.color));doc.rect(x,y,1.2,h-1.5,'F');
-     doc.setTextColor(23,32,46);doc.setFontSize(8);doc.text(c.l,x+3,y+4);doc.setTextColor(107,118,137);doc.setFontSize(7);doc.text(`${c.a.it.owner||'Unassigned'}${c.a.it.due?'  due '+c.a.it.due:''}`,x+3,y+h-3.5)});
+     doc.setTextColor(23,32,46);doc.setFontSize(8);doc.text(c.l,x+3,y+4);doc.setTextColor(107,118,137);doc.setFontSize(7);doc.text(`${ownTxt(c.a.it)||'Unassigned'}${c.a.it.due?'  due '+c.a.it.due:''}`,x+3,y+h-3.5)});
     y+=h}}
   else{const rows=[];b.groups.forEach(g=>{rows.push({g});g.items.forEach(it=>rows.push({it,p:span(it)}))});const sp=rows.map(r=>r.p).filter(Boolean);
    if(!sp.length){doc.setFontSize(10);doc.text('No scheduled items on this board.',M,y0+4);return}
@@ -479,7 +507,7 @@ function hoursPanels(all,bs){
  const ob=all.filter(i=>+i.est&&hrs(i.id)>+i.est).sort((a,b)=>(hrs(b.id)-b.est)-(hrs(a.id)-a.est)).slice(0,10);
  return `<div class="pn"><h3>Hours by board <span class="cnt" style="font-weight:400">(grey = estimate, bar = logged)</span></h3>${hbd.map(([n,e,a])=>`<div style="margin:8px 0"><div class="hl" style="margin-bottom:3px">${esc(n)} <span class="cnt">${fh(a)} of ${fh(e)}</span></div><div class="ht" style="height:8px"><i style="width:${e/hm*100}%;background:#8a93a3"></i></div><div class="ht" style="height:8px;margin-top:3px"><i style="width:${a/hm*100}%;background:${e&&a>e?'#d6455d':'var(--accent)'}"></i></div></div>`).join('')||'<span class="cnt">No boards.</span>'}</div>
  <div class="pn"><h3>Hours logged by person</h3>${pl.length?pl.map(([k,v])=>hb2(k,Math.round(v*100)/100,pm)).join(''):'<span class="cnt">No time logged yet.</span>'}</div>
- <div class="pn w"><h3>Over budget</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Estimated</th><th>Logged</th><th>Over by</th></tr>${ob.map(i=>`<tr><td><button class="lnk" data-a="upd" data-id="${i.id}">${esc(i.name)}</button></td><td>${esc(i.board)}</td><td>${esc(i.owner)||'—'}</td><td>${fh(i.est)}</td><td class="late">${fh(hrs(i.id))}</td><td class="late">${fh(hrs(i.id)-i.est)}</td></tr>`).join('')||'<tr><td colspan="6" class="cnt">No items are over their estimate.</td></tr>'}</table></div></div>`}
+ <div class="pn w"><h3>Over budget</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Estimated</th><th>Logged</th><th>Over by</th></tr>${ob.map(i=>`<tr><td><button class="lnk" data-a="upd" data-id="${i.id}">${esc(i.name)}</button></td><td>${esc(i.board)}</td><td>${esc(ownTxt(i))||'—'}</td><td>${fh(i.est)}</td><td class="late">${fh(hrs(i.id))}</td><td class="late">${fh(hrs(i.id)-i.est)}</td></tr>`).join('')||'<tr><td colspan="6" class="cnt">No items are over their estimate.</td></tr>'}</table></div></div>`}
 const hb2=(l,v,m)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${v/m*100}%;background:var(--accent)"></i></div><b>${v}</b></div>`;
 const teams=()=>((D.settings.teams||{}).list)||[];
 const myEmail=()=>((auth0&&auth0.currentUser&&auth0.currentUser.email)||'').toLowerCase();
@@ -557,9 +585,9 @@ const leaves=()=>((D.settings.leaves||{}).list)||[];
 const LTYPES=['Vacation','Sick','Emergency','Other'];
 const lfmt=l=>l.start===l.end?fmt(l.start):fmt(l.start)+' – '+fmt(l.end);
 const ldays=l=>dn(l.end)-dn(l.start)+1;
-function leaveTasks(l){return Object.values(D.items).filter(i=>i.owner===l.person&&kd(i)!==3&&i.due).filter(i=>{const b=D.boards[i.boardId];if(!b||b.archived||!canSee(b))return false;const p=span(i);return dstr(p[0])<=l.end&&dstr(p[1])>=l.start}).map(i=>({...i,board:D.boards[i.boardId].name}))}
-function itemLeave(it){if(!it.owner||!it.due||kd(it)===3)return null;const p=span(it),s=dstr(p[0]),e=dstr(p[1]);return leaves().filter(l=>l.person===it.owner&&l.end>=today&&l.start<=e&&l.end>=s).sort((a,b)=>a.start<b.start?-1:1)[0]||null}
-const lvBadge=it=>{const l=itemLeave(it);return l?`<span class="lv" title="${esc(it.owner)} is on leave ${esc(lfmt(l))} (${esc(l.type)}). This task is scheduled during that time.">🌴</span>`:''};
+function leaveTasks(l){return Object.values(D.items).filter(i=>owl(i).includes(l.person)&&kd(i)!==3&&i.due).filter(i=>{const b=D.boards[i.boardId];if(!b||b.archived||!canSee(b))return false;const p=span(i);return dstr(p[0])<=l.end&&dstr(p[1])>=l.start}).map(i=>({...i,board:D.boards[i.boardId].name}))}
+function itemLeave(it){const ow_=owl(it);if(!ow_.length||!it.due||kd(it)===3)return null;const p=span(it),s=dstr(p[0]),e=dstr(p[1]);return leaves().filter(l=>ow_.includes(l.person)&&l.end>=today&&l.start<=e&&l.end>=s).sort((a,b)=>a.start<b.start?-1:1)[0]||null}
+const lvBadge=it=>{const l=itemLeave(it);return l?`<span class="lv" title="${esc(l.person)} is on leave ${esc(lfmt(l))} (${esc(l.type)}). This task is scheduled during that time.">🌴</span>`:''};
 const awayNow=()=>leaves().filter(l=>l.start<=today&&l.end>=today);
 function openLeaves(){const adm=isAdmin();let showPast=false,f={person:'',start:today,end:today,type:'Vacation',note:''};
  const o=document.createElement('div');o.style.cssText=OV;
@@ -613,7 +641,7 @@ function row(it,k,sub){k=k||[];const cl=!!fold['i'+it.id],dn_=k.filter(c=>kd(c)=
  const nm=`<div class="nm">${sub?'<span class="ind">↳</span>':k.length?`<button class="tg2" data-a="ifold" data-id="${it.id}" aria-label="${cl?'Show':'Hide'} subtasks" aria-expanded="${!cl}">${cl?'▸':'▾'}</button>`:''}<input data-f="name" value="${esc(it.name)}" aria-label="${sub?'Subtask':'Item'} name">${k.length?`<span class="sp" title="Subtasks done">${dn_}/${k.length}</span>`:''}${sub?'':`<button class="x ab" data-a="addsubtask" data-id="${it.id}" title="Add a subtask" aria-label="Add subtask">+ Sub</button>`}</div>`;
  return `<div class="r${sub?' sub':''}" data-id="${it.id}"><div><button class="hd" draggable="true" aria-label="Drag to reorder, or press the up and down arrow keys" title="Drag to reorder">⋮⋮</button></div>
  ${nm}
- <div class="ow"><span class="av ${it.owner?'':'e'}">${esc(ini(it.owner||''))}</span>${ownerCell(it)}${lvBadge(it)}</div>
+ <div class="ow">${avs(it)}${ownerCell(it)}${lvBadge(it)}</div>
  <div>${pill(S,SC,it.status,'status')}</div><div>${pill(P,PC,it.priority,'priority')}</div>
  <div><input type="date" data-f="start" value="${it.start||''}" aria-label="Start date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
  <div><input type="date" data-f="due" value="${it.due||''}" class="${late(it)?'late':soon(it)?'soon':''}" aria-label="Due date"${k.some(c=>span(c))?' disabled title="Set automatically from subtasks"':''}></div>
@@ -650,7 +678,7 @@ function renderKanban(){
   const cards=B().groups.flatMap(g=>g.items).filter(it=>it.status===i&&match(it));
   return `<div class="col" data-s="${i}"><h3><span class="dot" style="background:${SC[i]}"></span>${s}<span class="cnt">${cards.length}</span></h3>
   ${cards.map(it=>`<div class="card" draggable="true" data-id="${it.id}"><div>${esc(it.name)}</div>
-  <div class="m"><span class="tag" style="background:${PC[it.priority]}">${P[it.priority]}</span>${it.owner?`<span class="av" title="${esc(it.owner)}">${esc(ini(it.owner))}</span>`:''}${lvBadge(it)}<span class="${late(it)?'late':soon(it)?'soon':''}">${fmt(it.due)}</span><button class="x" data-a="upd" data-id="${it.id}" style="margin-left:auto" aria-label="Updates">💬 ${nUpd(it.id)}</button></div><div class="cnt" style="font-size:12px;margin-top:4px" title="${esc(fts(it.updatedAt))}">Updated ${rel(it.updatedAt)}</div></div>`).join('')}
+  <div class="m"><span class="tag" style="background:${PC[it.priority]}">${P[it.priority]}</span>${owl(it).length?avs(it):''}${lvBadge(it)}<span class="${late(it)?'late':soon(it)?'soon':''}">${fmt(it.due)}</span><button class="x" data-a="upd" data-id="${it.id}" style="margin-left:auto" aria-label="Updates">💬 ${nUpd(it.id)}</button></div><div class="cnt" style="font-size:12px;margin-top:4px" title="${esc(fts(it.updatedAt))}">Updated ${rel(it.updatedAt)}</div></div>`).join('')}
   <button class="btn" style="width:100%" data-a="kadd" data-s="${i}">+ Add</button></div>`}).join('')+'</div>';
 }
 function renderMain(){const m=document.getElementById('main'),g0=m.querySelector('.gt'),sx=g0?g0.scrollLeft:null,sy=g0?g0.scrollTop:0;
@@ -734,7 +762,7 @@ function renderDash(){
  const c=f=>all.filter(f).length,done=c(i=>kd(i)===3),ov=c(late),pct=(a,t)=>t?Math.round(a/t*100):0;
  const hb=(l,v,m,col,v2)=>`<div class="hb"><span class="hl" title="${esc(l)}">${esc(l)}</span><div class="ht"><i style="width:${m?(v-(v2||0))/m*100:0}%;background:${col}"></i>${v2?`<i style="width:${v2/m*100}%;background:#d6455d"></i>`:''}</div><b>${v}</b></div>`;
  const kc=k=>c(x=>kd(x)===k),sc=S.map((s,i)=>c(x=>x.status===i)),pc=P.map((s,i)=>c(x=>x.priority===i));
- const ow={};all.filter(i=>kd(i)!==3).forEach(i=>{const k=(i.owner||'').trim()||'Unassigned';(ow[k]=ow[k]||{o:0,l:0}).o++;if(late(i))ow[k].l++});
+ const ow={};all.filter(i=>kd(i)!==3).forEach(i=>{(owl(i).length?owl(i):['Unassigned']).forEach(k=>{(ow[k]=ow[k]||{o:0,l:0}).o++;if(late(i))ow[k].l++})});
  const ol=Object.entries(ow).sort((a,b)=>b[1].o-a[1].o).slice(0,8),om=ol.length?ol[0][1].o:0;
  const att=all.filter(i=>kd(i)===2||late(i)).sort((a,b)=>(a.due||'9')<(b.due||'9')?-1:1).slice(0,10);
  const rec=srt(Object.values(D.updates)).reverse().slice(0,8).map(u=>{const it=D.items[u.itemId],bd=D.boards[u.boardId];return it&&bd&&canSee(bd)?`<div class="u${u.auto?' auto':''}"><div class="uh"><b>${esc(u.author||'Someone')}</b><span>${esc(fts(u.ts))}</span><button class="lnk" data-a="upd" data-id="${it.id}">${esc(it.name)}</button><span>${esc(bd?bd.name:'')}</span></div><div>${u.kind==='time'?'⏱ '+fh(u.hours)+' logged'+(u.text?': '+esc(u.text):''):esc(u.text)}</div></div>`:''}).join('')||'<span class="cnt">No updates posted yet.</span>';
@@ -752,7 +780,7 @@ function renderDash(){
  <div class="pn"><h3>Priority</h3>${P.map((s,i)=>hb(s,pc[i],Math.max(...pc,1),PC[i])).join('')}</div>
  <div class="pn"><h3>Open work by owner <span class="cnt" style="font-weight:400">(red = overdue)</span></h3>${ol.length?ol.map(([k,v])=>hb(k,v.o,om,'var(--accent)',v.l)).join(''):'<span class="cnt">Nothing open.</span>'}</div>
  <div class="pn w"><h3>Boards</h3><div class="tw"><table class="dtb"><tr><th>Board</th><th>Items</th><th>Progress</th><th>Done</th><th>Stuck</th><th>Overdue</th><th>Est. h</th><th>Est. days</th></tr>${rows||'<tr><td colspan="8" class="cnt">No boards yet.</td></tr>'}</table></div></div>
- <div class="pn w"><h3>Needs attention</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Due</th><th>Flag</th></tr>${att.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.board)}</td><td>${esc(i.owner)||'—'}</td><td class="${late(i)?'late':''}">${fmt(i.due)||'—'}</td><td>${kd(i)===2?`<span class="tag" style="background:${'#d6455d'}">Stuck</span> `:''}${late(i)?'<span class="tag" style="background:#b8741a">Overdue</span>':''}</td></tr>`).join('')||'<tr><td colspan="5" class="cnt">All clear. Nothing stuck or overdue.</td></tr>'}</table></div></div>
+ <div class="pn w"><h3>Needs attention</h3><div class="tw"><table class="dtb"><tr><th>Item</th><th>Board</th><th>Owner</th><th>Due</th><th>Flag</th></tr>${att.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.board)}</td><td>${esc(ownTxt(i))||'—'}</td><td class="${late(i)?'late':''}">${fmt(i.due)||'—'}</td><td>${kd(i)===2?`<span class="tag" style="background:${'#d6455d'}">Stuck</span> `:''}${late(i)?'<span class="tag" style="background:#b8741a">Overdue</span>':''}</td></tr>`).join('')||'<tr><td colspan="5" class="cnt">All clear. Nothing stuck or overdue.</td></tr>'}</table></div></div>
  ${hpan}
  <div class="pn w"><h3>Recent activity</h3>${rec}</div>
  </div>`;
@@ -775,6 +803,7 @@ document.addEventListener('click',async e=>{
  else if(a==='signout'){auth0.signOut().then(()=>location.reload());return}
  else if(a==='report'){openReport();return}
  else if(a==='import'){importBackup();return}
+ else if(a==='own'){openOwners(t,t.dataset.id);return}
  else if(a==='fclear'){fs.owner=fs.status=fs.pri=fs.flag=''}
  else if(a==='cprev'||a==='cnext'){const[y,m]=(st.cal||today.slice(0,7)).split('-').map(Number);st.cal=new Date(Date.UTC(y,m-1+(a==='cnext'?1:-1),1)).toISOString().slice(0,7)}
  else if(a==='ctoday')st.cal=today.slice(0,7);
