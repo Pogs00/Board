@@ -79,6 +79,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .k b{display:block;font:700 28px "Bricolage Grotesque",sans-serif}.k span{color:var(--mute);font-size:12.5px}
 .dg{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 .nw{display:grid;grid-template-columns:290px minmax(0,1fr);gap:14px;align-items:start}@media(max-width:760px){.nw{grid-template-columns:1fr}}.ni{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;color:inherit;font:inherit;margin-bottom:4px}.ni:hover{background:var(--hover)}.ni.on{background:var(--hover);border-color:var(--line)}.ni .nt{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nfmt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.nfmt .btn{min-width:34px;padding:5px 10px}.nfmt .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.sw{width:22px;height:22px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0;flex:none}
+.sw.on{box-shadow:0 0 0 2px var(--accent)}
+.sw.auto{background:linear-gradient(135deg,var(--ink) 50%,var(--panel) 50%)}
+.ncp{width:30px;height:26px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer}
 .pn{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
 .pn.w{grid-column:1/-1}.pn h3{margin:0 0 12px;font:700 15px "Bricolage Grotesque",sans-serif}
 .hb{display:grid;grid-template-columns:110px 1fr 40px;gap:10px;align-items:center;margin:7px 0}
@@ -668,6 +674,8 @@ const nkey=()=>'notes_'+(myEmail()||'local').replace(/[^a-z0-9]/g,'_');
 const mynotes=()=>((D.settings[nkey()]||{}).list)||[];
 const notefmt=t=>new Date(t).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
 let nTimer=null,nDirty=null;
+const NCOL=['#d6455d','#e08a1e','#2e9e6b','#2f5bea','#8a4fd6'];
+function nstyle(patch){saveNotesNow();nput(mynotes().map(n=>n.id===st.nid?{...n,...patch}:n))}
 function nput(L){const p=bulk;bulk=true;try{put('settings',nkey(),{list:L},true)}finally{bulk=p}}
 function saveNotesNow(){clearTimeout(nTimer);if(!nDirty)return;const d=nDirty;nDirty=null;const L=mynotes().slice(),i=L.findIndex(n=>n.id===d.id);if(i<0)return;L[i]={...L[i],title:d.title,body:d.body,at:Date.now()};nput(L);const s=document.getElementById('nst');if(s)s.textContent='Saved '+notefmt(L[i].at)}
 function noteListHtml(){const q=(st.nq||'').trim().toLowerCase();let L=mynotes().slice().sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.at-a.at);if(q)L=L.filter(n=>((n.title||'')+' '+(n.body||'')).toLowerCase().includes(q));
@@ -677,7 +685,8 @@ function renderNotes(){const all=mynotes(),q=(st.nq||'').trim().toLowerCase();
  const cur=all.find(n=>n.id===st.nid);
  return `<div class="nw"><div class="pn"><div style="display:flex;gap:8px;margin-bottom:10px"><input class="ti" id="nq" data-nk="q" value="${esc(st.nq||'')}" placeholder="Search notes" aria-label="Search notes" style="flex:1;min-width:0"><button class="btn pri" data-a="nnew">+ New</button></div><div id="nlist">${noteListHtml()}</div><div class="cnt" style="margin-top:10px">${all.length} note${all.length===1?'':'s'} · private to you</div></div>
  <div class="pn">${cur?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input class="ti" id="nti" data-nk="t" value="${esc(cur.title||'')}" maxlength="120" placeholder="Title" aria-label="Note title" style="flex:1;min-width:0;font:700 16px 'Bricolage Grotesque',sans-serif"><button class="btn" data-a="npin" title="Pin to top">${cur.pin?'Unpin':'Pin'}</button><button class="btn" data-a="ndelnote">Delete</button></div>
-  <textarea class="ti" id="nbo" data-nk="b" placeholder="Write your note here..." aria-label="Note body" style="width:100%;min-height:340px;resize:vertical;line-height:1.5">${esc(cur.body||'')}</textarea>
+  <div class="nfmt" role="toolbar" aria-label="Note text format"><button class="btn ${cur.bold?'on':''}" data-a="nbold" aria-pressed="${cur.bold?'true':'false'}" title="Bold" style="font-weight:700">B</button><span class="cnt">Color</span><button class="sw auto ${cur.color?'':'on'}" data-a="ncolor" data-c="" title="Default color" aria-label="Default color"></button>${NCOL.map(c=>`<button class="sw ${cur.color===c?'on':''}" data-a="ncolor" data-c="${c}" title="${c}" aria-label="Color ${c}" style="background:${c}"></button>`).join('')}<input type="color" class="ncp" data-ncp="1" value="${/^#[0-9a-f]{6}$/i.test(cur.color||'')?cur.color:'#2f5bea'}" title="Custom color" aria-label="Custom color"></div>
+  <textarea class="ti" id="nbo" data-nk="b" placeholder="Write your note here..." aria-label="Note body" style="width:100%;min-height:340px;resize:vertical;line-height:1.5;font-weight:${cur.bold?700:'inherit'};${/^#[0-9a-f]{6}$/i.test(cur.color||'')?'color:'+cur.color:''}">${esc(cur.body||'')}</textarea>
   <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span class="cnt" id="nst" style="flex:1">Last saved ${esc(notefmt(cur.at))}</span><button class="btn pri" data-a="nsave">Save</button></div>`
   :`<div class="empty" style="padding:40px 10px">${all.length&&q?'Select a note on the left.':'Nothing here yet.<br><br><button class="btn pri" data-a="nnew">Write your first note</button>'}</div>`}</div></div>`}
 document.addEventListener('input',e=>{const t=e.target,k=t.dataset&&t.dataset.nk;if(!k)return;
@@ -686,6 +695,8 @@ document.addEventListener('input',e=>{const t=e.target,k=t.dataset&&t.dataset.nk
  const s=document.getElementById('nst');if(s)s.textContent='Saving…';clearTimeout(nTimer);nTimer=setTimeout(saveNotesNow,700);
  const li=document.querySelector('[data-nsel="'+id+'"] .nt');if(li)li.textContent=nDirty.title.trim()||'Untitled note'});
 document.addEventListener('focusout',e=>{const k=e.target.dataset&&e.target.dataset.nk;if(k&&k!=='q')saveNotesNow()});
+document.addEventListener('input',e=>{if(e.target.dataset&&e.target.dataset.ncp){const b=document.getElementById('nbo');if(b)b.style.color=e.target.value}});
+document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.ncp&&st.nid){const v=e.target.value;nstyle({color:v});document.querySelectorAll('.nfmt .sw').forEach(x=>x.classList.remove('on'))}});
 window.addEventListener('beforeunload',saveNotesNow);
 const GLW=()=>matchMedia('(max-width:760px)').matches?150:260;
 function renderDash(){
@@ -740,6 +751,8 @@ document.addEventListener('click',async e=>{
  else if(a==='dview'){saveNotesNow();st.dview=t.dataset.v}
  else if(a==='nnew'){saveNotesNow();const id=uid();nput([{id,title:'',body:'',pin:false,at:Date.now()},...mynotes()]);st.nid=id;st.nq='';setTimeout(()=>{const x=document.getElementById('nti');if(x)x.focus()},0)}
  else if(a==='nsel'){saveNotesNow();st.nid=t.dataset.id}
+ else if(a==='nbold'){const n=mynotes().find(x=>x.id===st.nid);nstyle({bold:!(n&&n.bold)})}
+ else if(a==='ncolor')nstyle({color:t.dataset.c||''})
  else if(a==='npin'){saveNotesNow();nput(mynotes().map(n=>n.id===st.nid?{...n,pin:!n.pin}:n))}
  else if(a==='nsave'){saveNotesNow();toast('Note saved');return}
  else if(a==='ndelnote'){saveNotesNow();if(!await ask('Delete this note? This cannot be undone.'))return;nput(mynotes().filter(n=>n.id!==st.nid));st.nid=null}
